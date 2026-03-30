@@ -1,6 +1,7 @@
 # SportNetwork
 
-Backend API для спортивной социальной сети.
+- Backend API приложения для поиска спортивных мероприятий.
+- [Frontend](https://github.com/Ox000O00/SportNetwork)
 
 ## Требования
 
