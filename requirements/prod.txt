@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic[email]
+pydantic-settings
+alembic
+dishka
+asyncpg 
+bcrypt
+PyJWT 
+alembic

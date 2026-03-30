@@ -1,23 +1,71 @@
 services:
-  db:
+  postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: sport_network
-      POSTGRES_USER: sport_network
-      POSTGRES_PASSWORD: sport_network
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
-  backend:
-    build:
-      context: ./backend
-    depends_on:
-      - db
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
     environment:
-      DATABASE_URL: postgresql+psycopg://sport_network:sport_network@db:5432/sport_network
-    command: sh -c "uvicorn sport_network_api.main:app --host 0.0.0.0 --port 8000"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app_net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  backend:
+    &backend
+    build: .
+    restart: always
+    volumes:
+      - .:/backend
+      - ./certs:/backend/certs:ro
+      - ./.env:/backend/.env:ro
+    working_dir: /backend
+    environment:
+      - PYTHONPATH=src
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    command: sh -c "alembic upgrade head && uvicorn sport_network_api.main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
       - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge
+
 volumes:
-  db_data:
+  postgres_data:
+  rabbitmq_data:
