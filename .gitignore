@@ -212,3 +212,5 @@ jwt-pivate.pem
 jwt-public.pem
 # QWEN
 .qwen/
+# Docs
+docs/

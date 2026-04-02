@@ -1,17 +1,14 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
-from uuid import UUID
 
 
 @dataclass
 class User:
-    id: UUID
+    id: int | None
     username: str
     email: str
     password_hash: str
-    is_active: bool
-    created_at: Optional[datetime] = None
+    is_active: bool | None
     
     def verify_password(self, password: str) -> bool:
         import bcrypt

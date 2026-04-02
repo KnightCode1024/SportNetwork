@@ -17,10 +17,23 @@ class DatabaseProvider(Provider):
             engine,
             expire_on_commit=False,
             autoflush=False,
+            autocommit=False,  # ← Важно: не коммитить автоматически
         )
 
     @provide(scope=Scope.REQUEST)
     async def get_session(self, session_factory: async_sessionmaker) -> AsyncIterable[AsyncSession]:
+        """
+        Создать сессию на один запрос.
+        
+        Коммит происходит автоматически при успешном завершении запроса.
+        Если возникает исключение — делается rollback.
+        """
         async with session_factory() as session:
-            yield session
-
+            try:
+                yield session
+                # ✅ Коммит после успешного выполнения запроса
+                await session.commit()
+            except Exception:
+                # ❌ Rollback при ошибке
+                await session.rollback()
+                raise

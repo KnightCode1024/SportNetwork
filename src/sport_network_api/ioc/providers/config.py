@@ -1,6 +1,6 @@
 from dishka import Provider, Scope, provide
 
-from sport_network_api.config.app import AppConfig
+from sport_network_api.config.app import APPConfig
 from sport_network_api.config.auth_jwt import AuthJWTConfig
 from sport_network_api.config.database import DatabaseConfig
 from sport_network_api.config.email import EmailConfig
@@ -13,8 +13,8 @@ class ConfigProvider(Provider):
     scope = Scope.APP
 
     @provide
-    def get_app_config(self) -> AppConfig:
-        return AppConfig()
+    def get_app_config(self) -> APPConfig:
+        return APPConfig()
 
     @provide
     def get_auth_jwt_config(self) -> AuthJWTConfig:

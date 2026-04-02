@@ -13,11 +13,16 @@ class UserDTO:
 
 @dataclass
 class RegisterUserDTO:
-    user: UserDTO
-    access_token: str
+    id: int
+    username: str
+    email: str
+    is_active: bool
 
 
 @dataclass
 class LoginUserDTO:
-    user: UserDTO
+    id: int
+    username: str
+    email: str
+    is_active: bool
     access_token: str

@@ -1,14 +1,11 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, HTTPException
 from dishka.integrations.fastapi import FromDishka, DishkaRoute
 
 from sport_network_api.application.interactors.user.interactors import (
     RegisterUserInteractor,
+    RegisterUserInput,
     LoginUserInteractor,
     GetUserInteractor,
-)
-from sport_network_api.application.interactors.user.input import (
-    RegisterUserInput,
-    LoginUserInput,
 )
 from sport_network_api.application.interactors.user.errors import (
     AuthenticationError,
@@ -26,33 +23,63 @@ from sport_network_api.controllers.schemas.user import (
 )
 
 
-controller = APIRouter(prefix="/users", tags=["Users"], route_class=DishkaRoute)
+router = APIRouter(
+    prefix="/users",
+    tags=["Users"],
+    route_class=DishkaRoute,
+)
 
 
-@controller.post("/register", response_model=RegisterResponse)
+@router.post("/register", response_model=RegisterResponse)
 async def register(
     request: RegisterRequest,
-    # interactor: RegisterUserInteractor = DishkaDepends(),
-):
-    pass
+    interactor: FromDishka[RegisterUserInteractor],
+) -> RegisterResponse:
+    try:
+        input_data = RegisterUserInput(
+            username=request.username,
+            email=request.email,
+            password=request.password,
+        )
+        res = await interactor(input_data)
+        return RegisterResponse(
+            id=res.id,
+            username=res.username,
+            email=res.email,
+            is_active=res.is_active,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}",
+        )
 
-@controller.get("/verify-email")
+
+@router.get("/verify-email")
 async def verify_email(token: str):
     pass
 
-@controller.post("/login", response_model=LoginResponse)
+
+@router.post("/login", response_model=LoginResponse)
 async def login(
     request: LoginRequest,
-    # interactor: LoginUserInteractor = DishkaDepends(),
-):
+    interactor: FromDishka[LoginUserInteractor],
+) -> LoginResponse:
     pass
 
-@controller.post("check-code")
+
+@router.post("check-code")
 async def check_code():
     pass
 
-@controller.get("/me")
+
+@router.get("/me", response_model=UserResponse)
 async def get_me(
     current_user: FromDishka[UserResponse]
-):
+) -> UserResponse:
     return current_user

@@ -9,3 +9,7 @@ asyncpg
 bcrypt
 PyJWT 
 alembic
+taskiq-aio-pika
+pyotp
+aiosmtplib
+python-multipart

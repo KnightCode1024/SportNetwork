@@ -3,6 +3,7 @@ from .config import ConfigProvider
 from .database import DatabaseProvider
 from .gateways import GatewayProvider
 from .interactors import InteractorProvider
+from .services import ServiceProvider
 from dishka.integrations.fastapi import FastapiProvider
 
 providers = [
@@ -11,6 +12,7 @@ providers = [
     DatabaseProvider(),
     GatewayProvider(),
     InteractorProvider(),
+    ServiceProvider(),  
     FastapiProvider()
 ]
 
