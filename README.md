@@ -4,16 +4,12 @@
 - [Frontend](https://github.com/Ox000O00/SportNetwork)
 
 ## Требования
-
 - Docker и Docker Compose
 - OpenSSL (для генерации JWT ключей)
 
-## Быстрый старт
+## Запуск
 
 ### 1. Генерация JWT ключей
-
-Для работы аутентификации необходимо сгенерировать пару RSA ключей:
-
 ```bash
 # Создайте директорию для ключей (если не существует)
 mkdir -p certs
@@ -26,7 +22,6 @@ openssl rsa -in certs/jwt-private.pem -pubout -out certs/jwt-public.pem
 ```
 
 ### 2. Настройка переменных окружения
-
 Скопируйте файл `.env.example` в `.env`:
 
 ```bash
@@ -44,10 +39,7 @@ DB_NAME=sport_network_db
 DB_PASSWORD=ваш_надёжный_пароль
 ```
 
-> **Примечание:** Минимально необходимые переменные для запуска — только `DB_*`. Остальные можно добавить по мере необходимости.
-
 ### 3. Запуск через Docker Compose
-
 ```bash
 # Сборка и запуск всех сервисов
 docker compose up --build -d
@@ -57,9 +49,18 @@ curl http://localhost:8000/ping
 ```
 
 ### 4. Проверка работы
-
 - **API:** http://localhost:8000
 - **Интерактивная документация (Swagger):** http://localhost:8000/docs
-- **Альтернативная документация (ReDoc):** http://localhost:8000/redoc
-- **RabbitMQ Management UI:** http://localhost:15672 (логин/пароль: `guest/guest`)
-- **PostgreSQL:** localhost:5432
+
+
+## Архитектура
+Архитектура приложение базируется на прицыпах чистой архитектуры. 
+
+- `ioc` - di фрэфмвок. Принцып инверсии зависимости.
+- `config` - Настройки приложения
+- `application`
+- `controllers` - Слой представления
+  - `api` - Эндпоинты/Ручки
+  - `schemas` - Схемы валидации данных в слое представленияъ
+- `domain` - Доменные модели.
+- `infrastructure` - Инфраструктурный слой. Работа с данными
