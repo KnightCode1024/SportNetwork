@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from uuid import UUID
 from datetime import datetime
+
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -9,6 +11,9 @@ class User:
     email: str
     password_hash: str
     is_active: bool | None
+    token: UUID | None
+    reset_token: str | None = None
+    reset_token_expires: datetime | None = None
     
     def verify_password(self, password: str) -> bool:
         import bcrypt

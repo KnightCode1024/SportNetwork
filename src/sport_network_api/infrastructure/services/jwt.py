@@ -1,8 +1,12 @@
 from datetime import datetime, timedelta, UTC
 from typing import TypedDict
 import jwt
+import logging
 
 from sport_network_api.config.auth_jwt import AuthJWTConfig
+
+
+logger = logging.getLogger(__name__)
 
 
 class TokenPair(TypedDict):
@@ -18,7 +22,7 @@ class JwtService:
         self,
         payload: dict,
         expire_timedelta: timedelta | None = None,
-        expire_minutes: int = None,
+        expire_minutes: int | None = None,
     ):
         private_key: str = self.jwt_config.PRIVATE_KEY.read_text()
         algorithm: str = self.jwt_config.ALGORITHM
@@ -52,7 +56,9 @@ class JwtService:
         token: str | bytes,
     ):
         public_key: str = self.jwt_config.PUBLIC_KEY.read_text()
-        algorithm: str = self.jwt_config.ALGORITM
+        algorithm: str = self.jwt_config.ALGORITHM
+
+        logger.info(f"Decoding JWT with algorithm={algorithm}, key_path={self.jwt_config.PUBLIC_KEY}")
 
         decoded = jwt.decode(
             token,

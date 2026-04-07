@@ -6,7 +6,7 @@ from .profile_controller import router as profile_router
 from .settings_controller import router as settings_router 
 
 v1_controller = APIRouter(
-    prefix="/api/v1", 
+    prefix="/api/v1",
     route_class=DishkaRoute,
 )
 

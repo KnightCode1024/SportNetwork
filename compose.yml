@@ -62,6 +62,16 @@ services:
     networks:
       - app_net
 
+  worker:
+    <<: *backend
+    ports: []
+    command: taskiq worker sport_network_api.infrastructure.taskiq_broker:broker --workers 1 --fs-discover --tasks-pattern **/tasks/*.py
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
 networks:
   app_net:
     driver: bridge

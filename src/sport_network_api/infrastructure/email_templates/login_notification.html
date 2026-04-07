@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+            <div class="header">Новый вход в аккаунт</div>
+            <div class="subtitle">Здравствуйте, {{ username }}!</div>
+
+            <div class="body-text">
+                Мы обнаружили вход в ваш аккаунт {{ app_name }} с нового устройства.
+            </div>
+
+            <div class="body-text" style="font-weight: 500; margin-bottom: 8px;">Детали входа:</div>
+
+            <div style="margin-bottom: 20px;">
+                <span class="badge">📍 {{ location }}</span>
+                <span class="badge"> {{ device }}</span>
+                <span class="badge">🌐 {{ browser }}</span>
+            </div>
+
+            <div class="body-text">
+                <strong>IP-адрес:</strong> {{ ip_address }}
+            </div>
+
+            <div class="body-text" style="margin-top: 16px; font-size: 13px; color: #71717a;">
+                Если это были вы — никаких действий не требуется. Если вы не узнаёте эту активность, рекомендуем немедленно сменить пароль и включить двухфакторную аутентификацию.
+            </div>
+{% endblock %}

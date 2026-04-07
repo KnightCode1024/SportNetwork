@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+            <div class="header">Подтверждение email</div>
+            <div class="subtitle">Здравствуйте, {{ username }}!</div>
+
+            <div class="body-text">
+                Спасибо за регистрацию в {{ app_name }}. Для завершения создания аккаунта, пожалуйста, подтвердите ваш email адрес.
+            </div>
+
+            <div class="button-container">
+                <a href="{{ verify_link }}" class="button">Подтвердить email</a>
+            </div>
+
+            <div class="body-text">
+                Или скопируйте ссылку и вставьте в браузер:
+            </div>
+            <div class="link-text">{{ verify_link }}</div>
+
+            <div class="body-text" style="margin-top: 16px; font-size: 13px; color: #71717a;">
+                Ссылка действительна в течение 24 часов. Если вы не регистрировались в нашем сервисе, просто проигнорируйте это письмо.
+            </div>
+{% endblock %}
