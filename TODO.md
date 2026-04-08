@@ -10,6 +10,7 @@
 - [ ] `GET /resend-code` — Повторная отправка кода 2FA
 - [x] `GET /me` — Получение текущего пользователя (через `AuthProvider`)
 - [x] `POST /reset-password` — Сброс пароля
+- [ ] `GET /logout` - блэк лист токенов
 
 ## Profile (`/api/v1/profile`)
 - [ ] `GET /` — Получение профиля
