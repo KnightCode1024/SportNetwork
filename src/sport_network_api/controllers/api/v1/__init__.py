@@ -1,19 +1,23 @@
-from dishka.integrations.fastapi import DishkaRoute
 from fastapi import APIRouter
+from dishka.integrations.fastapi import DishkaRoute
 
-from .users_controller import controller as user_controller
+from .users_controller import router as users_router
+from .profile_controller import router as profile_router 
+from .settings_controller import router as settings_router 
 
-v1_controller = APIRouter(prefix="/v1", route_class=DishkaRoute)
+v1_controller = APIRouter(
+    prefix="/api/v1",
+    route_class=DishkaRoute,
+)
 
-controllers = [
-    user_controller,
+routers = [
+    users_router,
+    profile_router,
+    settings_router,
 ]
 
-for controller in controllers:
-    v1_controller.include_router(controller)
+for router in routers:
+    v1_controller.include_router(router)
 
 
-__all__ = [
-    "v1_controller",
-]
-
+__all__ = ["v1_controller"]

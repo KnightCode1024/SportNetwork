@@ -1,8 +1,9 @@
 from enum import Enum
 from typing import TYPE_CHECKING
+from datetime import date
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Text, ForeignKey, Integer, Enum as SQLEnum
+from sqlalchemy import String, Text, ForeignKey, Integer, Enum as SQLEnum, Date
 
 from sport_network_api.infrastructure.models import Base
 
@@ -26,12 +27,14 @@ class Profile(Base):
         String(),
         nullable=True,
     )
-    age: Mapped[int] = mapped_column(
-        Integer(),
+    date_of_birth: Mapped[date] = mapped_column(
+        Date(),
+        nullable=True,
     )
     gender: Mapped[GenderEnum] = mapped_column(
         SQLEnum(GenderEnum),
-        default=GenderEnum,
+        nullable=True,
+        default=None,
     )
 
     user_id: Mapped[int] = mapped_column(

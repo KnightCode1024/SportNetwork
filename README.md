@@ -3,6 +3,13 @@
 - Backend API приложения для поиска спортивных мероприятий.
 - [Frontend](https://github.com/Ox000O00/SportNetwork)
 
+## 📚 Документация
+- [Быстрый старт](docs/quickstart.md) - установка и запуск проекта
+- [Архитектура проекта](docs/architecture/overview.md)
+  - [Порядок выполнения запросов](docs/architecture/request-flow.md)
+  - [Ключевые компоненты](docs/architecture/components.md)
+  - [Управление транзакциями](docs/architecture/transactions.md)
+ 
 ## Требования
 - Docker и Docker Compose
 - OpenSSL (для генерации JWT ключей)
