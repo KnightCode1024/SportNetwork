@@ -7,12 +7,14 @@ from sport_network_api.application.interactors.user.interactors import (
     VerifyEmailInteractor,
     RequestPasswordResetInteractor,
     ConfirmPasswordResetInteractor,
+    LogoutUserInteractor,
 )
-from sport_network_api.application.interfaces.user_gateway import UserGatewayInterface
-from sport_network_api.application.interfaces.profile_gateway import ProfileGatewayInterface
-from sport_network_api.application.interfaces.uow import UnitOfWorkInterface
-from sport_network_api.application.interfaces.password_service import PasswordServiceInterface
-from sport_network_api.application.interfaces.jwt_service import JwtServiceInterface
+from sport_network_api.application.interfaces.gateways.user_gateway import UserGatewayInterface
+from sport_network_api.application.interfaces.gateways.profile_gateway import ProfileGatewayInterface
+from sport_network_api.application.interfaces.gateways.token_blacklist_gateway import TokenBlacklistGatewayInterface
+from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
+from sport_network_api.application.interfaces.services.password_service import PasswordServiceInterface
+from sport_network_api.application.interfaces.services.jwt_service import JwtServiceInterface
 
 
 class InteractorProvider(Provider):
@@ -90,4 +92,19 @@ class InteractorProvider(Provider):
             uow=uow,
             user_repository=user_gateway,
             password_service=password_service,
+        )
+
+    @provide
+    def get_logout_user_interactor(
+        self,
+        uow: UnitOfWorkInterface,
+        user_gateway: UserGatewayInterface,
+        token_blacklist_gateway: TokenBlacklistGatewayInterface,
+        jwt_service: JwtServiceInterface,
+    ) -> LogoutUserInteractor:
+        return LogoutUserInteractor(
+            uow=uow,
+            user_gateway=user_gateway,
+            token_blacklist_gateway=token_blacklist_gateway,
+            jwt_service=jwt_service,
         )

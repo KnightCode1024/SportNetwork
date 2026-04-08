@@ -3,8 +3,8 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sport_network_api.domain.user import User
-from sport_network_api.application.interfaces.user_gateway import UserGatewayInterface
-from sport_network_api.application.interfaces.uow import UnitOfWorkInterface
+from sport_network_api.application.interfaces.gateways.user_gateway import UserGatewayInterface
+from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
 from sport_network_api.infrastructure.models.user import User as UserModel
 
 

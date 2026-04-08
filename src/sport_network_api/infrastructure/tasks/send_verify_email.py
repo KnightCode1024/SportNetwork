@@ -14,7 +14,7 @@ async def send_verify_email(to_email: str, token: str, username: str = "") -> bo
     frontend_config = FrontendConfig()
 
     frontend_url = frontend_config.URL.rstrip("/")
-    verify_link = f"{frontend_url}/verify-email?token={token}"
+    verify_link = f"{frontend_url}/verify-email/{token}"
 
     html_body = render_template(
         "verify_email.html",

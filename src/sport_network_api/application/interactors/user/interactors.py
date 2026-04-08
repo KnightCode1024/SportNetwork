@@ -1,24 +1,32 @@
-from dataclasses import dataclass
+import time
 from uuid import uuid4
 
-from sport_network_api.application.dto.user import RegisterUserDTO, UserDTO, LoginUserDTO, RegisterUserInput, LoginUserInput, VerifyEmailInput, ResetPasswordInput, ResetPasswordConfirmInput
-from sport_network_api.application.interfaces.user_gateway import UserGatewayInterface
-from sport_network_api.application.interfaces.profile_gateway import ProfileGatewayInterface
-from sport_network_api.application.interfaces.uow import UnitOfWorkInterface
-from sport_network_api.application.interfaces.password_service import PasswordServiceInterface
-from sport_network_api.application.interfaces.jwt_service import JwtServiceInterface
+from sport_network_api.application.dto.user import (
+    RegisterUserDTO, 
+    UserDTO, 
+    LoginUserDTO, 
+    RegisterUserInput, 
+    LoginUserInput, 
+    VerifyEmailInput, 
+    ResetPasswordInput, 
+    ResetPasswordConfirmInput, 
+    LoginDeviceInfo,
+    LogoutUserInput,
+)
+from sport_network_api.application.interfaces.gateways.user_gateway import UserGatewayInterface
+from sport_network_api.application.interfaces.gateways.profile_gateway import ProfileGatewayInterface
+from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
+from sport_network_api.application.interfaces.services.password_service import PasswordServiceInterface
+from sport_network_api.application.interfaces.services.jwt_service import JwtServiceInterface
+from sport_network_api.application.interfaces.gateways.token_blacklist_gateway import TokenBlacklistGatewayInterface
 from sport_network_api.application.interactors.user.errors import UserAlreadyExistsError
+
 from sport_network_api.domain.user import User
 from sport_network_api.domain.profile import Profile
+
 from sport_network_api.infrastructure.tasks.send_verify_email import send_verify_email
 from sport_network_api.infrastructure.tasks.send_login_notification import send_login_notification
 from sport_network_api.infrastructure.tasks.send_reset_password_email import send_reset_password_email
-
-
-@dataclass
-class LoginDeviceInfo:
-    ip_address: str
-    user_agent: str
 
 
 class RegisterUserInteractor:
@@ -76,7 +84,6 @@ class RegisterUserInteractor:
             username=user.username,
             email=user.email,
             is_active=user.is_active,
-            # token=user.token,
         )
     
 class VerifyEmailInteractor:
@@ -132,7 +139,7 @@ class LoginUserInteractor:
         if user is None:
             raise ValueError("Invalid credentials")
 
-        if not user.verify_password(input_data.password):
+        if not self.password_service.verify(input_data.password, user.password_hash):
             raise ValueError("Invalid credentials")
 
         device, browser = self._parse_device_info(device_info.user_agent)
@@ -262,3 +269,38 @@ class ConfirmPasswordResetInteractor:
             await self.user_repository.update(user)
 
         return True
+
+class LogoutUserInteractor:
+    def __init__(
+        self,
+        uow: UnitOfWorkInterface,
+        user_gateway: UserGatewayInterface,
+        token_blacklist_gateway: TokenBlacklistGatewayInterface,
+        jwt_service: JwtServiceInterface,
+    ):
+        self.uow = uow
+        self.user_gateway = user_gateway
+        self.token_blacklist_gateway = token_blacklist_gateway
+        self.jwt_service = jwt_service
+
+    async def __call__(self, input_data: LogoutUserInput):
+        try:
+            access_payload = self.jwt_service.decode_jwt(input_data.access_token)
+            access_exp = access_payload.get("exp", 0)
+            access_ttl = max(0, int(access_exp) - int(time.time()))
+            await self.token_blacklist_gateway.blacklist_token(
+                input_data.access_token, access_ttl
+            )
+        except Exception:
+            pass 
+
+        if input_data.refresh_token:
+            try:
+                refresh_payload = self.jwt_service.decode_jwt(input_data.refresh_token)
+                refresh_exp = refresh_payload.get("exp", 0)
+                refresh_ttl = max(0, int(refresh_exp) - int(time.time()))
+                await self.token_blacklist_gateway.blacklist_token(
+                    input_data.refresh_token, refresh_ttl
+                )
+            except Exception:
+                pass
