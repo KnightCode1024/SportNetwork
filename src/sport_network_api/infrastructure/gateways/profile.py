@@ -72,4 +72,3 @@ class ProfileGateway(ProfileGatewayInterface):
             gender=gender_value,
             user_id=profile.user_id,
         )
-

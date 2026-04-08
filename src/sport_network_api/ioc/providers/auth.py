@@ -2,8 +2,9 @@ from dishka import Provider, Scope, provide
 from fastapi import Request, HTTPException, status
 from jwt import ExpiredSignatureError, InvalidTokenError
 
-from sport_network_api.application.interfaces.user_gateway import UserGatewayInterface
-from sport_network_api.application.interfaces.jwt_service import JwtServiceInterface
+from sport_network_api.application.interfaces.gateways.user_gateway import UserGatewayInterface
+from sport_network_api.application.interfaces.gateways.token_blacklist_gateway import TokenBlacklistGatewayInterface
+from sport_network_api.application.interfaces.services.jwt_service import JwtServiceInterface
 from sport_network_api.application.interactors.user.interactors import GetUserInteractor
 from sport_network_api.controllers.schemas.user import UserResponse
 
@@ -17,6 +18,7 @@ class AuthProvider(Provider):
         self,
         get_user: GetUserInteractor,
         jwt_service: JwtServiceInterface,
+        token_blacklist_gateway: TokenBlacklistGatewayInterface,
         request: Request,
     ) -> UserResponse:
         authorization = request.headers.get("Authorization")
@@ -43,6 +45,12 @@ class AuthProvider(Provider):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authorization token missing",
+            )
+
+        if await token_blacklist_gateway.is_blacklisted(token):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
             )
 
         try:

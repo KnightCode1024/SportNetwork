@@ -54,3 +54,13 @@ class ResetPasswordInput:
 class ResetPasswordConfirmInput:
     token: str
     new_password: str
+
+@dataclass
+class LoginDeviceInfo:
+    ip_address: str
+    user_agent: str
+
+@dataclass
+class LogoutUserInput:
+    access_token: str
+    refresh_token: str | None = None

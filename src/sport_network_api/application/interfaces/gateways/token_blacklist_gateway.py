@@ -1,0 +1,6 @@
+from typing import Protocol
+
+class TokenBlacklistGatewayInterface(Protocol):
+    async def blacklist_token(self, token: str, ttl: int) -> None: ...
+
+    async def is_blacklisted(self, token: str) -> bool: ...

@@ -2,7 +2,7 @@ import bcrypt
 import secrets
 from datetime import datetime, timedelta, UTC
 
-from sport_network_api.application.interfaces.password_service import PasswordServiceInterface
+from sport_network_api.application.interfaces.services.password_service import PasswordServiceInterface
 from sport_network_api.domain.user import User
 
 

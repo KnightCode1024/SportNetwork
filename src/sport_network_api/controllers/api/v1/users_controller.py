@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Response, Query, HTTPException
+from fastapi import APIRouter, Request, Response, Query, HTTPException, status
 from dishka.integrations.fastapi import FromDishka, DishkaRoute
 
 from sport_network_api.application.interactors.user.interactors import (
@@ -8,9 +8,17 @@ from sport_network_api.application.interactors.user.interactors import (
     VerifyEmailInteractor,
     RequestPasswordResetInteractor,
     ConfirmPasswordResetInteractor,
+    LogoutUserInteractor,
     LoginDeviceInfo,
 )
-from sport_network_api.application.dto.user import RegisterUserInput, LoginUserInput, VerifyEmailInput, ResetPasswordInput, ResetPasswordConfirmInput
+from sport_network_api.application.dto.user import (
+    RegisterUserInput,
+    LoginUserInput,
+    VerifyEmailInput,
+    ResetPasswordInput,
+    ResetPasswordConfirmInput,
+    LogoutUserInput,
+)
 from sport_network_api.application.interactors.user.errors import (
     AuthenticationError,
     UserAlreadyExistsError,
@@ -59,6 +67,21 @@ def set_auth_cookies(
         secure=True,
         samesite="lax",
         max_age=jwt_config.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+    )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        secure=True,
+        samesite="lax",
+    )
+    response.delete_cookie(
+        key="refresh_token",
+        httponly=True,
+        secure=True,
+        samesite="lax",
     )
 
 
@@ -121,12 +144,15 @@ async def login(
         user_agent=user_agent,
     )
 
-    res = await interactor(login_input, device_info)
+    try:
+        res = await interactor(login_input, device_info)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
     set_auth_cookies(
-        response, 
-        res.access_token, 
-        res.refresh_token, 
+        response,
+        res.access_token,
+        res.refresh_token,
         jwt_config)
 
     return LoginResponse(
@@ -178,3 +204,36 @@ async def reset_password_confirm(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return ResetPasswordResponse(success=True)
+
+@router.post("/logout")
+async def logout(
+    request: Request,
+    response: Response,
+    current_user: FromDishka[UserResponse],
+    interactor: FromDishka[LogoutUserInteractor],
+) -> dict[str, str]:
+    access_token = request.cookies.get("access_token")
+    refresh_token = request.cookies.get("refresh_token")
+    
+    authorization = request.headers.get("Authorization")
+    if authorization and not access_token:
+        try:
+            scheme, access_token = authorization.split()
+        except ValueError:
+            pass
+    
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No token to logout",
+        )
+    
+    logout_input = LogoutUserInput(
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
+    await interactor(logout_input)
+    
+    clear_auth_cookies(response)
+    
+    return {"message": "Successfully logged out"}
