@@ -59,3 +59,7 @@ class ResetPasswordConfirmRequest(BaseModel):
 
 class ResetPasswordResponse(BaseModel):
     success: bool = Field(..., description="Успешный сброс пароля")
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., description="Refresh токен")

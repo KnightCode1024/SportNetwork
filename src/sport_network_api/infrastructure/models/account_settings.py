@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 
 from sqlalchemy.orm import mapped_column, Mapped, relationship
-from sqlalchemy import Boolean, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Boolean, Integer, ForeignKey, Enum as SQLEnum
 
 from sport_network_api.infrastructure.models import Base
 
@@ -20,6 +20,11 @@ class NotificationProviderEnum(Enum):
 class AccountSetting(Base):
     __tablename__ = "account_settings"
 
+    id: Mapped[int] = mapped_column(
+        Integer(),
+        primary_key=True,
+        autoincrement=True,
+    )
     auth_2fa: Mapped[bool] = mapped_column(
         Boolean(),
         default=False,

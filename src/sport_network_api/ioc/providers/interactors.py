@@ -8,30 +8,36 @@ from sport_network_api.application.interactors.user.interactors import (
     RequestPasswordResetInteractor,
     ConfirmPasswordResetInteractor,
     LogoutUserInteractor,
+    RefreshTokenInteractor,
 )
 from sport_network_api.application.interfaces.gateways.user_gateway import UserGatewayInterface
 from sport_network_api.application.interfaces.gateways.profile_gateway import ProfileGatewayInterface
+from sport_network_api.application.interfaces.gateways.settings_gateway import SettingsGatewayInterface
 from sport_network_api.application.interfaces.gateways.token_blacklist_gateway import TokenBlacklistGatewayInterface
 from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
 from sport_network_api.application.interfaces.services.password_service import PasswordServiceInterface
 from sport_network_api.application.interfaces.services.jwt_service import JwtServiceInterface
+from sport_network_api.application.interactors.settings.interactors import GetSettingsInteractor
 
 
 class InteractorProvider(Provider):
     scope = Scope.REQUEST
 
+    # USER MODEL
     @provide
     def get_register_user_interactor(
         self,
         uow: UnitOfWorkInterface,
         user_gateway: UserGatewayInterface,
         profile_gateway: ProfileGatewayInterface,
+        settings_gateway: SettingsGatewayInterface,
         password_service: PasswordServiceInterface,
     ) -> RegisterUserInteractor:
         return RegisterUserInteractor(
             uow=uow,
             user_repository=user_gateway,
             profile_repository=profile_gateway,
+            settings_repository=settings_gateway,
             password_service=password_service,
         )
 
@@ -107,4 +113,25 @@ class InteractorProvider(Provider):
             user_gateway=user_gateway,
             token_blacklist_gateway=token_blacklist_gateway,
             jwt_service=jwt_service,
+        )
+
+    @provide
+    def get_refresh_token_interactor(
+        self,
+        user_gateway: UserGatewayInterface,
+        jwt_service: JwtServiceInterface,
+    ) -> RefreshTokenInteractor:
+        return RefreshTokenInteractor(
+            user_repository=user_gateway,
+            jwt_service=jwt_service,
+        )
+    
+    # SETTINGS_ACCOUNT MODEL
+    @provide
+    def get_settings_interactor(
+        self,
+        settings_gateway: SettingsGatewayInterface,
+    ) -> GetSettingsInteractor:
+        return GetSettingsInteractor(
+            settings_gateway=settings_gateway,
         )

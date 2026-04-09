@@ -2,16 +2,18 @@ import time
 from uuid import uuid4
 
 from sport_network_api.application.dto.user import (
-    RegisterUserDTO, 
-    UserDTO, 
-    LoginUserDTO, 
-    RegisterUserInput, 
-    LoginUserInput, 
-    VerifyEmailInput, 
-    ResetPasswordInput, 
-    ResetPasswordConfirmInput, 
+    RegisterUserDTO,
+    UserDTO,
+    LoginUserDTO,
+    RegisterUserInput,
+    LoginUserInput,
+    VerifyEmailInput,
+    ResetPasswordInput,
+    ResetPasswordConfirmInput,
     LoginDeviceInfo,
     LogoutUserInput,
+    RefreshTokenInput,
+    RefreshTokenDTO,
 )
 from sport_network_api.application.interfaces.gateways.user_gateway import UserGatewayInterface
 from sport_network_api.application.interfaces.gateways.profile_gateway import ProfileGatewayInterface
@@ -20,6 +22,7 @@ from sport_network_api.application.interfaces.services.password_service import P
 from sport_network_api.application.interfaces.services.jwt_service import JwtServiceInterface
 from sport_network_api.application.interfaces.gateways.token_blacklist_gateway import TokenBlacklistGatewayInterface
 from sport_network_api.application.interactors.user.errors import UserAlreadyExistsError
+from sport_network_api.application.interfaces.gateways.settings_gateway import SettingsGatewayInterface
 
 from sport_network_api.domain.user import User
 from sport_network_api.domain.profile import Profile
@@ -35,12 +38,14 @@ class RegisterUserInteractor:
         uow: UnitOfWorkInterface,
         user_repository: UserGatewayInterface,
         profile_repository: ProfileGatewayInterface,
+        settings_repository: SettingsGatewayInterface,
         password_service: PasswordServiceInterface,
     ):
         self.uow = uow
         self.user_repository = user_repository
         self.profile_repository = profile_repository
         self.password_service = password_service
+        self.settings_repository = settings_repository
 
     async def __call__(self, input_data: RegisterUserInput) -> RegisterUserDTO:
         existing_user_by_email = await self.user_repository.get_by_email(input_data.email)
@@ -70,6 +75,10 @@ class RegisterUserInteractor:
             )
             await self.profile_repository.create(profile)
 
+            await self.settings_repository.create(
+                user_id=created_user.id
+                )
+
         await send_verify_email.kiq(
             to_email=created_user.email,
             token=str(created_user.token),
@@ -85,6 +94,7 @@ class RegisterUserInteractor:
             email=user.email,
             is_active=user.is_active,
         )
+    
     
 class VerifyEmailInteractor:
     def __init__(
@@ -270,6 +280,7 @@ class ConfirmPasswordResetInteractor:
 
         return True
 
+
 class LogoutUserInteractor:
     def __init__(
         self,
@@ -304,3 +315,43 @@ class LogoutUserInteractor:
                 )
             except Exception:
                 pass
+
+
+class RefreshTokenInteractor:
+    def __init__(
+        self,
+        user_repository: UserGatewayInterface,
+        jwt_service: JwtServiceInterface,
+    ):
+        self.user_repository = user_repository
+        self.jwt_service = jwt_service
+
+    async def __call__(self, input_data: RefreshTokenInput) -> RefreshTokenDTO:
+        try:
+            decoded = self.jwt_service.decode_jwt(input_data.refresh_token)
+        except Exception:
+            raise ValueError("Invalid or expired refresh token")
+
+        user_id = decoded.get("sub")
+        if not user_id:
+            raise ValueError("Invalid or expired refresh token")
+
+        user = await self.user_repository.get_by_id(int(user_id))
+        if user is None or not user.is_active:
+            raise ValueError("User not found or inactive")
+
+        new_access_token = self.jwt_service.create_access_token(
+            data={"sub": str(user.id), "email": user.email},
+        )
+        new_refresh_token = self.jwt_service.create_refresh_token(
+            data={"sub": str(user.id), "email": user.email},
+        )
+
+        return RefreshTokenDTO(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            is_active=user.is_active,
+            access_token=new_access_token,
+            refresh_token=new_refresh_token,
+        )

@@ -1,43 +1,24 @@
-from dataclasses import dataclass
+from sport_network_api.application.dto.settings import SettingsDTO
+from sport_network_api.application.interfaces.gateways.settings_gateway import SettingsGatewayInterface
 
 
-@dataclass
-class SettingsDTO:
-    id: int
-    user_id: int
-    auth_2fa: bool
-    notification_provider: str
-    two_factor_secret: str | None
-    backup_codes: list[str] | None
+class GetSettingsInteractor:
+    def __init__(
+        self,
+        settings_gateway: SettingsGatewayInterface,
+    ):
+        self.settings_gateway = settings_gateway
 
-
-class GetSettingsInteractor:    
-    def __init__(self):
-        pass
-    
     async def __call__(self, user_id: int) -> SettingsDTO:
-        pass
+        settings = await self.settings_gateway.get_by_user_id(user_id)
+        if settings is None:
+            raise ValueError("Settings not found")
+        return self._to_domain(settings)
 
-
-class UpdateSettingsInteractor:
-    def __init__(self):
-        pass
-    
-    async def __call__(self, user_id: int, **fields) -> SettingsDTO:
-        pass
-
-
-class Enable2faInteractor:
-    def __init__(self):
-        pass
-    
-    async def __call__(self, user_id: int) -> dict:
-        pass
-
-
-class Disable2faInteractor:
-    def __init__(self):
-        pass
-    
-    async def __call__(self, user_id: int, otp_code: str) -> None:
-        pass
+    def _to_domain(self, model) -> SettingsDTO:
+        return SettingsDTO(
+            id=model.id,
+            user_id=model.user_id,
+            auth_2fa=model.auth_2fa,
+            notification_provider=model.notification_provider.value,
+        )

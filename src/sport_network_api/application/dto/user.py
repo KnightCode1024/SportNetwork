@@ -64,3 +64,16 @@ class LoginDeviceInfo:
 class LogoutUserInput:
     access_token: str
     refresh_token: str | None = None
+
+@dataclass
+class RefreshTokenInput:
+    refresh_token: str
+
+@dataclass
+class RefreshTokenDTO:
+    id: int
+    username: str
+    email: str
+    is_active: bool
+    access_token: str
+    refresh_token: str

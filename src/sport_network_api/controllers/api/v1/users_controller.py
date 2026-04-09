@@ -10,6 +10,7 @@ from sport_network_api.application.interactors.user.interactors import (
     ConfirmPasswordResetInteractor,
     LogoutUserInteractor,
     LoginDeviceInfo,
+    RefreshTokenInteractor,
 )
 from sport_network_api.application.dto.user import (
     RegisterUserInput,
@@ -18,6 +19,7 @@ from sport_network_api.application.dto.user import (
     ResetPasswordInput,
     ResetPasswordConfirmInput,
     LogoutUserInput,
+    RefreshTokenInput,
 )
 from sport_network_api.application.interactors.user.errors import (
     AuthenticationError,
@@ -35,6 +37,7 @@ from sport_network_api.controllers.schemas.user import (
     ResetPasswordRequest,
     ResetPasswordConfirmRequest,
     ResetPasswordResponse,
+    RefreshRequest,
 )
 from sport_network_api.config.auth_jwt import AuthJWTConfig
 
@@ -44,7 +47,6 @@ router = APIRouter(
     tags=["Users"],
     route_class=DishkaRoute,
 )
-
 
 def set_auth_cookies(
     response: Response,
@@ -66,9 +68,8 @@ def set_auth_cookies(
         httponly=True,
         secure=True,
         samesite="lax",
-        max_age=jwt_config.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        max_age=jwt_config.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
-
 
 def clear_auth_cookies(response: Response) -> None:
     response.delete_cookie(
@@ -83,7 +84,6 @@ def clear_auth_cookies(response: Response) -> None:
         secure=True,
         samesite="lax",
     )
-
 
 @router.post("/register", response_model=RegisterResponse)
 async def register(
@@ -109,7 +109,6 @@ async def register(
         is_active=result.is_active,
     )
 
-
 @router.get("/verify-email")
 async def verify_email(
     interactor: FromDishka[VerifyEmailInteractor],
@@ -121,7 +120,6 @@ async def verify_email(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"verified": True}
-
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
@@ -160,25 +158,68 @@ async def login(
         refresh_token=res.refresh_token,
     )
 
-@router.post("/refresh")
-async def refresh_token():
-    pass
+@router.post("/refresh", response_model=LoginResponse)
+async def refresh_token(
+    request: Request,
+    response: Response,
+    body: RefreshRequest | None = None,
+    interactor: FromDishka[RefreshTokenInteractor] = None,
+    jwt_config: FromDishka[AuthJWTConfig] = None,
+) -> LoginResponse:
+    refresh_token_value = None
 
-@router.post("/check-code")
-async def check_code():
-    pass
+    if body and body.refresh_token:
+        refresh_token_value = body.refresh_token
 
-@router.get("/resend-code")
-async def resend_code():
-    pass
+    if not refresh_token_value:
+        refresh_token_value = request.cookies.get("refresh_token")
 
+    if not refresh_token_value:
+        authorization = request.headers.get("Authorization")
+        if authorization:
+            try:
+                scheme, refresh_token_value = authorization.split()
+            except ValueError:
+                pass
+
+    if not refresh_token_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token missing",
+        )
+
+    input_data = RefreshTokenInput(refresh_token=refresh_token_value)
+
+    try:
+        result = await interactor(input_data)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    set_auth_cookies(
+        response,
+        result.access_token,
+        result.refresh_token,
+        jwt_config,
+    )
+
+    return LoginResponse(
+        access_token=result.access_token,
+        refresh_token=result.refresh_token,
+    )
+
+# @router.post("/check-code")
+# async def check_code():
+#     pass
+
+# @router.get("/resend-code")
+# async def resend_code():
+#     pass
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
     current_user: FromDishka[UserResponse]
 ) -> UserResponse:
     return current_user
-
 
 @router.post("/reset-password", response_model=ResetPasswordResponse)
 async def reset_password(
@@ -188,7 +229,6 @@ async def reset_password(
     input_data = ResetPasswordInput(email=request.email)
     await interactor(input_data)
     return ResetPasswordResponse(success=True)
-
 
 @router.post("/reset-password/confirm", response_model=ResetPasswordResponse)
 async def reset_password_confirm(

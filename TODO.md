@@ -5,7 +5,7 @@
 - [x] `POST /register` — Регистрация пользователя
 - [x] `GET /verify-email` — Подтверждение email
 - [x] `POST /login` — Вход в аккаунт
-- [ ] `POST /refresh` — Обновление access/refresh токенов
+- [x] `POST /refresh` — Обновление access/refresh токенов
 - [ ] `POST /check-code` — Проверка кода 2FA
 - [ ] `GET /resend-code` — Повторная отправка кода 2FA
 - [x] `GET /me` — Получение текущего пользователя (через `AuthProvider`)
@@ -19,6 +19,6 @@
 
 ## Settings (`/api/v1/settings`)
 (Провайдер уведомлений, 2fa)
-- [ ] `GET /settings` — Получение настроек
+- [x] `GET /settings` — Получение настроек
 - [ ] `PATCH /settings` — Обновление настроек
 - [ ] `POST /settings` — Создание настроек
