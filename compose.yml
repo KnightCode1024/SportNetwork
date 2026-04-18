@@ -1,23 +1,25 @@
 services:
-  postgres:
+  postgres_sport_network:
+    container_name: postgres_sport_network
     image: postgres:18-alpine
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "5432:5433"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_sport_network:/var/lib/postgresql/data
     networks:
-      - app_net
+      - sport_network_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  rabbitmq:
+  rabbitmq_sport_network:
+    container_name: rabbitmq_sport_network
     image: rabbitmq:4-management-alpine
     ports:
       - "5672:5672"
@@ -26,31 +28,33 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_data_sport_network:/var/lib/rabbitmq
     networks:
-      - app_net
+      - sport_network_net
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  redis:
+  redis_sport_network:
+    container_name: redis_sport_network
     image: redis:8-alpine
     ports:
-      - "6379:6379"
+      - "6379:6378"
     volumes:
-      - redis-data:/data
+      - redis_data_sport_network:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - app_net
+      - sport_network_net
   
-  backend:
+  backend_sport_network:
     &backend
+    container_name: backend_sport_network
     build: .
     restart: always
     volumes:
@@ -65,36 +69,34 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    command: sh -c "alembic upgrade head && uvicorn sport_network_api.main:app --host 0.0.0.0 --port 8000 --reload"
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - APP_HOST=${APP_HOST}
+      - APP_PORT=${APP_PORT}
+    command: sh -c "alembic upgrade head && uvicorn sport_network_api.main:app --host ${APP_HOST} --port ${APP_PORT} --reload"
     ports:
-      - "8000:8000"
+      - "8001:8001"
     depends_on:
-      postgres:
+      postgres_sport_network:
         condition: service_healthy
-      rabbitmq:
+      rabbitmq_sport_network:
         condition: service_healthy
-      redis:
+      redis_sport_network:
         condition: service_healthy
     networks:
-      - app_net
+      - sport_network_net
 
-  worker:
+  worker_sport_network:
     <<: *backend
+    container_name: worker_sport_network
     ports: []
     command: taskiq worker sport_network_api.infrastructure.taskiq_broker:broker --workers 1 --fs-discover --tasks-pattern **/tasks/*.py
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
 
 networks:
-  app_net:
+  sport_network_net:
     driver: bridge
 
 volumes:
-  postgres_data:
-  rabbitmq_data:
-  redis-data:
+  postgres_data_sport_network:
+  rabbitmq_data_sport_network:
+  redis_data_sport_network:
