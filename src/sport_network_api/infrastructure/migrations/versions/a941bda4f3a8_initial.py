@@ -1,8 +1,8 @@
-"""Add User Profile AccountSettings
+"""initial
 
-Revision ID: 7c6810962c7b
+Revision ID: a941bda4f3a8
 Revises: 
-Create Date: 2026-03-30 16:24:52.607859
+Create Date: 2026-04-19 09:31:05.786430
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '7c6810962c7b'
+revision: str = 'a941bda4f3a8'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,17 +25,21 @@ def upgrade() -> None:
     sa.Column('username', sa.String(), nullable=False),
     sa.Column('email', sa.String(), nullable=False),
     sa.Column('password', sa.String(), nullable=False),
+    sa.Column('token', sa.UUID(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('reset_token', sa.String(), nullable=True),
+    sa.Column('reset_token_expires', sa.DateTime(timezone=True), nullable=True),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email'),
+    sa.UniqueConstraint('token'),
     sa.UniqueConstraint('username')
     )
     op.create_table('account_settings',
-    sa.Column('auth_2fa', sa.Boolean(), nullable=False),
-    sa.Column('notification_provider', sa.Enum('EMAIL', 'TELEGRAM', 'NONE', name='notificationproviderenum'), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('auth_2fa', sa.Boolean(), nullable=False),
+    sa.Column('notification_provider', sa.Enum('EMAIL', 'TELEGRAM', name='notificationprovider'), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id')
@@ -43,8 +47,8 @@ def upgrade() -> None:
     op.create_table('profiles',
     sa.Column('bio', sa.Text(), nullable=True),
     sa.Column('avatar_url', sa.String(), nullable=True),
-    sa.Column('age', sa.Integer(), nullable=False),
-    sa.Column('gender', sa.Enum('MAN', 'WOMEN', name='genderenum'), nullable=False),
+    sa.Column('date_of_birth', sa.Date(), nullable=True),
+    sa.Column('gender', sa.Enum('MAN', 'WOMEN', name='gender'), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),

@@ -4,13 +4,14 @@ from dishka.integrations.fastapi import FromDishka, DishkaRoute
 from sport_network_api.application.interactors.user.interactors import (
     RegisterUserInteractor,
     LoginUserInteractor,
-    GetUserInteractor,
     VerifyEmailInteractor,
     RequestPasswordResetInteractor,
     ConfirmPasswordResetInteractor,
     LogoutUserInteractor,
     LoginDeviceInfo,
     RefreshTokenInteractor,
+    CheckCodeInteractor,
+    ResendOtpCodeInteractor,
 )
 from sport_network_api.application.dto.user import (
     RegisterUserInput,
@@ -18,26 +19,23 @@ from sport_network_api.application.dto.user import (
     VerifyEmailInput,
     ResetPasswordInput,
     ResetPasswordConfirmInput,
-    LogoutUserInput,
     RefreshTokenInput,
+    UserInput,
+    TokenPair,
 )
-from sport_network_api.application.interactors.user.errors import (
-    AuthenticationError,
-    UserAlreadyExistsError,
-    InvalidCredentialsError,
-    UserNotFoundError,
-)
+from sport_network_api.application.interactors.user.errors import UserAlreadyExistsError
+
 from sport_network_api.controllers.schemas.user import (
     RegisterRequest,
     LoginRequest,
     UserResponse,
     RegisterResponse,
     LoginResponse,
-    ErrorResponse,
     ResetPasswordRequest,
     ResetPasswordConfirmRequest,
     ResetPasswordResponse,
     RefreshRequest,
+    OtpCode,
 )
 from sport_network_api.config.auth_jwt import AuthJWTConfig
 
@@ -96,7 +94,7 @@ async def register(
         email=request.email,
         password=request.password,
         date_of_birth=request.date_of_birth,
-        gender=request.gender.value if request.gender else None,
+        gender=request.gender,
     )
     try:
         result = await register_user(input_data)
@@ -134,7 +132,8 @@ async def login(
     user_agent = request.headers.get("User-Agent", "")
 
     login_input = LoginUserInput(
-        identifier=input_data.identifier,
+        email=input_data.email,
+        username=input_data.username,
         password=input_data.password,
     )
     device_info = LoginDeviceInfo(
@@ -145,7 +144,11 @@ async def login(
     try:
         res = await interactor(login_input, device_info)
     except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
 
     set_auth_cookies(
         response,
@@ -193,7 +196,7 @@ async def refresh_token(
     try:
         result = await interactor(input_data)
     except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
     set_auth_cookies(
         response,
@@ -207,13 +210,40 @@ async def refresh_token(
         refresh_token=result.refresh_token,
     )
 
-# @router.post("/check-code")
-# async def check_code():
-#     pass
+@router.post("/check-code")
+async def check_code(
+    otp_code: OtpCode,
+    current_user: FromDishka[UserResponse],
+    interactor: FromDishka[CheckCodeInteractor],
+):
+    try:
+        user_data = UserInput(
+            username=current_user.username,
+            email=current_user.email,
+        )
+        return await interactor(user_data, otp_code)
+    except Exception as e:
+        raise HTTPException(
+            detail=str(e),
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
 
-# @router.get("/resend-code")
-# async def resend_code():
-#     pass
+@router.get("/resend-code")
+async def resend_code(
+    current_user: FromDishka[UserResponse],
+    interactor: FromDishka[ResendOtpCodeInteractor],
+):
+    try:
+        user_data = UserInput(
+            username=current_user.username,
+            email=current_user.email,
+        )
+        return await interactor(user_data)
+    except Exception as e:
+        raise HTTPException(
+            detail=str(e),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
@@ -242,7 +272,7 @@ async def reset_password_confirm(
     try:
         await interactor(input_data)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return ResetPasswordResponse(success=True)
 
 @router.post("/logout")
@@ -268,7 +298,7 @@ async def logout(
             detail="No token to logout",
         )
     
-    logout_input = LogoutUserInput(
+    logout_input = TokenPair(
         access_token=access_token,
         refresh_token=refresh_token,
     )

@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sport_network_api.application.interfaces import ProfileGatewayInterface
 from sport_network_api.infrastructure.models.profile import Profile as ProfileModel
 from sport_network_api.domain.profile import Profile
+from  sport_network_api.domain.enums import Gender
 
 class ProfileGateway(ProfileGatewayInterface):
     def __init__(self, session: AsyncSession):
@@ -52,23 +53,14 @@ class ProfileGateway(ProfileGatewayInterface):
             bio=profile_model.bio,
             avatar_url=profile_model.avatar_url,
             date_of_birth=profile_model.date_of_birth,
-            gender=profile_model.gender.value if profile_model.gender else None,
+            gender=profile_model.gender,
         )
 
     def _from_domain(self, profile: Profile) -> ProfileModel:
-        from sport_network_api.infrastructure.models.profile import GenderEnum
-
-        gender_value = None
-        if profile.gender:
-            try:
-                gender_value = GenderEnum(profile.gender)
-            except ValueError:
-                gender_value = GenderEnum.MAN
-
         return ProfileModel(
             bio=profile.bio,
             avatar_url=profile.avatar_url,
             date_of_birth=profile.date_of_birth,
-            gender=gender_value,
+            gender=profile.gender,
             user_id=profile.user_id,
         )

@@ -15,5 +15,4 @@ class EmailConfig(BaseSettings):
     PORT: int
     USER: str
     PASSWORD: str
-    USE_TLS: bool = False
-    USE_SSL: bool = False
+    USE_SSL: bool

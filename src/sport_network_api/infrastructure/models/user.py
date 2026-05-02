@@ -39,15 +39,9 @@ class User(Base):
         Boolean(),
         default=False,
     )
-    reset_token: Mapped[str | None] = mapped_column(
+    otp_secret: Mapped[str] = mapped_column(
         String(),
         nullable=True,
-        default=None,
-    )
-    reset_token_expires: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        default=None,
     )
 
     profile: Mapped[Profile] = relationship(

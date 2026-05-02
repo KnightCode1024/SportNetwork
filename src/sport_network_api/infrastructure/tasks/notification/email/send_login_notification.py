@@ -7,7 +7,7 @@ from sport_network_api.infrastructure.taskiq_broker import broker
 from sport_network_api.infrastructure.email_templates import render_template
 
 
-@broker.task(task_name="send_login_notification")
+@broker.task(task_name="send_login_notification", retry_on_error=True, max_retries=3)
 async def send_login_notification(
     to_email: str,
     ip_address: str,
@@ -53,7 +53,7 @@ async def send_login_notification(
         port=email_config.PORT,
         username=email_config.USER,
         password=email_config.PASSWORD,
-        use_tls=email_config.USE_TLS or email_config.USE_SSL,
+        use_tls=email_config.USE_SSL,
         timeout=60,
         tls_context=None,
     )

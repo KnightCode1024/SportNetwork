@@ -10,14 +10,12 @@ class UserDTO:
     is_active: bool
     created_at: datetime | None = None
 
-
 @dataclass
 class RegisterUserDTO:
     id: int | None 
     username: str
     email: str
     is_active: bool
-
 
 @dataclass
 class LoginUserDTO:
@@ -27,7 +25,6 @@ class LoginUserDTO:
     is_active: bool
     access_token: str
     refresh_token: str
-
 
 @dataclass
 class RegisterUserInput:
@@ -43,8 +40,15 @@ class VerifyEmailInput:
 
 @dataclass
 class LoginUserInput:
-    identifier: str
+    email: str | None
+    username: str | None
     password: str
+
+@dataclass
+class UserInput:
+    id: int | None = None
+    username: str | None = None
+    email: str | None = None
 
 @dataclass
 class ResetPasswordInput:
@@ -61,9 +65,13 @@ class LoginDeviceInfo:
     user_agent: str
 
 @dataclass
-class LogoutUserInput:
+class TokenPair:
     access_token: str
     refresh_token: str | None = None
+
+@dataclass
+class OtpCodeInput:
+    otp_code: str
 
 @dataclass
 class RefreshTokenInput:

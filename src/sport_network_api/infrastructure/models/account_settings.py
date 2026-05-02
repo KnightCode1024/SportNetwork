@@ -6,15 +6,10 @@ from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy import Boolean, Integer, ForeignKey, Enum as SQLEnum
 
 from sport_network_api.infrastructure.models import Base
+from sport_network_api.domain.enums import NotificationProvider
 
 if TYPE_CHECKING:
     from sport_network_api.infrastructure.models import User
-
-
-class NotificationProviderEnum(Enum):
-    EMAIL = "email"
-    TELEGRAM = "telegram"
-    NONE = "none"
 
 
 class AccountSetting(Base):
@@ -29,9 +24,9 @@ class AccountSetting(Base):
         Boolean(),
         default=False,
     )
-    notification_provider: Mapped[NotificationProviderEnum] = mapped_column(
-        SQLEnum(NotificationProviderEnum),
-        default=NotificationProviderEnum.EMAIL,
+    notification_provider: Mapped[NotificationProvider] = mapped_column(
+        SQLEnum(NotificationProvider),
+        default=NotificationProvider.EMAIL,
     )
 
     user_id: Mapped[int] = mapped_column(

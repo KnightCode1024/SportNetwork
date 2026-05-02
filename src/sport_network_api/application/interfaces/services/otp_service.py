@@ -1,0 +1,9 @@
+from typing import Protocol
+
+
+class OtpServiceInterface(Protocol):
+    def generate_otp_secret(self) -> str: ...
+
+    def generate_otp_code(self, otp_secret: str) -> str: ...
+
+    def verify_otp_code(self, code: str, otp_secret: str) -> bool: ...

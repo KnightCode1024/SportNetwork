@@ -71,8 +71,11 @@ class JwtService:
     def create_access_token(
         self,
         data: dict,
+        ttl: int = None,
     ) -> str:
         expire_minutes: int = self.jwt_config.ACCESS_TOKEN_EXPIRE_MINUTES
+        if ttl is not None:
+            expire_minutes = ttl
         return self.encode_jwt(
             payload=data,
             expire_minutes=expire_minutes,

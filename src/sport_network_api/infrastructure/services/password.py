@@ -7,11 +7,8 @@ from sport_network_api.domain.user import User
 
 
 class PasswordService(PasswordServiceInterface):
-    def __init__(self, rounds: int = 12):
-        self.rounds = rounds
-
     def hash_password(self, password: str) -> str:
-        salt = bcrypt.gensalt(rounds=self.rounds)
+        salt = bcrypt.gensalt()
         pwd_bytes = password.encode("utf-8")
         hashed_bytes = bcrypt.hashpw(pwd_bytes, salt)
         return hashed_bytes.decode("utf-8")

@@ -18,5 +18,4 @@ providers = [
     FastapiProvider()
 ]
 
-
 __all__ = ["providers"]

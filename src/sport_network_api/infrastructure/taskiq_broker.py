@@ -1,5 +1,6 @@
 from taskiq import InMemoryBroker
 from taskiq_aio_pika import AioPikaBroker
+from taskiq.middlewares import SmartRetryMiddleware
 
 from sport_network_api.config.app import APPConfig
 from sport_network_api.config.rabbitmq import RabbitMQConfig
@@ -10,7 +11,14 @@ rabbitmq_config = RabbitMQConfig()
 if app_config.MODE == "tests":
     broker = InMemoryBroker()
 else:
-    broker = AioPikaBroker(url=rabbitmq_config.URL)
+    broker = AioPikaBroker(url=rabbitmq_config.URL).with_middlewares(
+    SmartRetryMiddleware(
+        default_retry_count=3,
+        default_delay=10,
+        use_jitter=True,
+        use_delay_exponent=True,
+        max_delay_exponent=120
+    ),
+)
 
-# Import tasks to register them with the broker
-import sport_network_api.infrastructure.tasks  # noqa: E402, F401
+import sport_network_api.infrastructure.tasks.notification.email

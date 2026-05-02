@@ -4,32 +4,39 @@ from uuid import uuid4
 from sport_network_api.application.dto.user import (
     RegisterUserDTO,
     UserDTO,
-    LoginUserDTO,
     RegisterUserInput,
     LoginUserInput,
     VerifyEmailInput,
     ResetPasswordInput,
     ResetPasswordConfirmInput,
     LoginDeviceInfo,
-    LogoutUserInput,
     RefreshTokenInput,
     RefreshTokenDTO,
+    OtpCodeInput,
+    TokenPair,
+    UserInput,
 )
+from sport_network_api.application.interfaces.gateways.token_blacklist_gateway import TokenBlacklistGatewayInterface
 from sport_network_api.application.interfaces.gateways.user_gateway import UserGatewayInterface
 from sport_network_api.application.interfaces.gateways.profile_gateway import ProfileGatewayInterface
-from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
-from sport_network_api.application.interfaces.services.password_service import PasswordServiceInterface
+
 from sport_network_api.application.interfaces.services.jwt_service import JwtServiceInterface
-from sport_network_api.application.interfaces.gateways.token_blacklist_gateway import TokenBlacklistGatewayInterface
+from sport_network_api.application.interfaces.services.password_service import PasswordServiceInterface
+from  sport_network_api.application.interfaces.services.otp_service import OtpServiceInterface
+
+from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
 from sport_network_api.application.interactors.user.errors import UserAlreadyExistsError
 from sport_network_api.application.interfaces.gateways.settings_gateway import SettingsGatewayInterface
 
+from sport_network_api.infrastructure.tasks.notification.email import (
+    send_verify_email,
+    send_reset_password_email,
+    send_login_notification,
+    send_otp_code,
+)
+
 from sport_network_api.domain.user import User
 from sport_network_api.domain.profile import Profile
-
-from sport_network_api.infrastructure.tasks.send_verify_email import send_verify_email
-from sport_network_api.infrastructure.tasks.send_login_notification import send_login_notification
-from sport_network_api.infrastructure.tasks.send_reset_password_email import send_reset_password_email
 
 
 class RegisterUserInteractor:
@@ -61,8 +68,8 @@ class RegisterUserInteractor:
             username=input_data.username,
             email=input_data.email,
             password_hash=password_hash,
-            is_active=False,
             token=uuid4(),
+            otp_secret=None,
         )
 
         async with self.uow:
@@ -79,12 +86,11 @@ class RegisterUserInteractor:
                 user_id=created_user.id
                 )
 
-        await send_verify_email.kiq(
+        send_verify_email.kiq(
             to_email=created_user.email,
             token=str(created_user.token),
             username=created_user.username,
-            )
-
+        )
         return self._to_dto(created_user)
     
     def _to_dto(self, user: User) -> UserDTO:
@@ -100,13 +106,13 @@ class VerifyEmailInteractor:
     def __init__(
         self,
         uow: UnitOfWorkInterface,
-        user_repository: UserGatewayInterface,
+        user_gateway: UserGatewayInterface,
     ):
         self.uow = uow
-        self.user_repository = user_repository
+        self.user_gateway = user_gateway
 
     async def __call__(self, input_data: VerifyEmailInput) -> UserDTO:
-        user = await self.user_repository.get_by_token(input_data.token)
+        user = await self.user_gateway.get_by_token(input_data.token)
         if user is None:
             raise ValueError("Invalid or expired verification token")
         if user.is_active:
@@ -114,7 +120,7 @@ class VerifyEmailInteractor:
 
         async with self.uow:
             user.activate()
-            await self.user_repository.update(user)
+            await self.user_gateway.update(user)
 
         return self._to_dto(user)
 
@@ -131,23 +137,30 @@ class LoginUserInteractor:
     def __init__(
         self,
         uow: UnitOfWorkInterface,
-        user_repository: UserGatewayInterface,
+        user_gateway: UserGatewayInterface,
+        settings_gateway: SettingsGatewayInterface,
         password_service: PasswordServiceInterface,
         jwt_service: JwtServiceInterface,
+        otp_service: OtpServiceInterface,
     ):
         self.uow = uow
-        self.user_repository = user_repository
+        self.user_gateway = user_gateway
+        self.settings_gateway = settings_gateway
         self.password_service = password_service
         self.jwt_service = jwt_service
+        self.otp_service = otp_service
 
     async def __call__(
         self,
         input_data: LoginUserInput,
         device_info: LoginDeviceInfo,
-    ) -> LoginUserDTO:
-        user = await self._find_user(input_data.identifier)
+    ) -> TokenPair:
+        user = await self._find_user(input_data)
         if user is None:
+            print(user, type(user))
             raise ValueError("Invalid credentials")
+        if not user.is_active:
+            raise ValueError("Email not verified")
 
         if not self.password_service.verify(input_data.password, user.password_hash):
             raise ValueError("Invalid credentials")
@@ -163,26 +176,45 @@ class LoginUserInteractor:
             username=user.username,
         )
 
-        access_token = self.jwt_service.create_access_token(
-            data={"sub": str(user.id), "email": user.email},
-        )
-        refresh_token = self.jwt_service.create_refresh_token(
-            data={"sub": str(user.id), "email": user.email},
-        )
+        user_settings = await self.settings_gateway.get_by_user_id(user.id)
 
-        return LoginUserDTO(
-            id=user.id,
-            username=user.username,
-            email=user.email,
-            is_active=user.is_active,
-            access_token=access_token,
-            refresh_token=refresh_token,
-        )
+        if not user_settings.auth_2fa or user_settings.auth_2fa is None:
+            access_token = self.jwt_service.create_access_token(
+                data={"sub": str(user.id), "email": user.email},
+            )
+            refresh_token = self.jwt_service.create_refresh_token(
+                data={"sub": str(user.id), "email": user.email},
+            )
+            return TokenPair(
+                access_token=access_token,
+                refresh_token=refresh_token,
+            )
+        else:
+            otp_secret = self.otp_service.generate_otp_secret()
+            otp_code = self.otp_service.generate_otp_code(otp_secret)
 
-    async def _find_user(self, identifier: str) -> User | None:
-        if "@" in identifier:
-            return await self.user_repository.get_by_email(identifier)
-        return await self.user_repository.get_by_username(identifier)
+            await  send_otp_code.kiq(
+                user.email,
+                otp_code,
+            )
+
+            async with self.uow:
+                await self.user_gateway.set_otp_secret(user, otp_secret)
+
+            access_token = self.jwt_service.create_access_token(
+                data={"sub": str(user.id), "email": user.email},
+                ttl=5,
+            )
+            return TokenPair(access_token=access_token)
+
+    async def _find_user(self, user: LoginUserInput) -> User | None:
+        if user.email is None and user.username is None:
+            raise ValueError("Invalid user: not username and email")
+        if user.email is not None:
+            return await self.user_gateway.get_by_email(user.email)
+        if user.username is not None:
+            return await self.user_gateway.get_by_username(user.username)
+        return None
 
     def _parse_device_info(self, user_agent: str) -> tuple[str, str]:
         ua_lower = user_agent.lower()
@@ -192,7 +224,6 @@ class LoginUserInteractor:
             device = "Tablet"
         else:
             device = "Desktop"
-
         if "firefox" in ua_lower:
             browser = "Firefox"
         elif "chrome" in ua_lower or "chromium" in ua_lower:
@@ -203,7 +234,6 @@ class LoginUserInteractor:
             browser = "Edge"
         else:
             browser = "Unknown"
-
         return device, browser
 
 
@@ -247,7 +277,7 @@ class RequestPasswordResetInteractor:
         async with self.uow:
             await self.user_repository.update(user)
 
-        await send_reset_password_email.kiq(
+        send_reset_password_email.kiq(
             to_email=user.email,
             token=user.reset_token,
             username=user.username,
@@ -294,7 +324,7 @@ class LogoutUserInteractor:
         self.token_blacklist_gateway = token_blacklist_gateway
         self.jwt_service = jwt_service
 
-    async def __call__(self, input_data: LogoutUserInput):
+    async def __call__(self, input_data: TokenPair):
         try:
             access_payload = self.jwt_service.decode_jwt(input_data.access_token)
             access_exp = access_payload.get("exp", 0)
@@ -302,8 +332,8 @@ class LogoutUserInteractor:
             await self.token_blacklist_gateway.blacklist_token(
                 input_data.access_token, access_ttl
             )
-        except Exception:
-            pass 
+        except Exception as e:
+            raise ValueError(str(e))
 
         if input_data.refresh_token:
             try:
@@ -313,8 +343,8 @@ class LogoutUserInteractor:
                 await self.token_blacklist_gateway.blacklist_token(
                     input_data.refresh_token, refresh_ttl
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                raise ValueError(str(e))
 
 
 class RefreshTokenInteractor:
@@ -355,3 +385,88 @@ class RefreshTokenInteractor:
             access_token=new_access_token,
             refresh_token=new_refresh_token,
         )
+
+
+class CheckCodeInteractor:
+    def __init__(
+        self,
+        user_gateway: UserGatewayInterface,
+        otp_service: OtpServiceInterface,
+        jwt_service: JwtServiceInterface,
+    ):
+        self.user_gateway = user_gateway
+        self.otp_service = otp_service
+        self.jwt_service = jwt_service
+
+    # async def __call__(self, user: UserInput, otp_code: OtpCodeInput):
+    #     otp_secret = await self.user_gateway.get_otp_secret(user)
+    #
+    #     if not self.otp_service.verify_otp_code(otp_code.otp_code, otp_secret):
+    #         raise ValueError("Invalid code")
+    #
+    #     return TokenPair(
+    #         access_token=self.jwt_service.create_access_token({"sub": str(user.id)}),
+    #         refresh_token=self.jwt_service.create_refresh_token({"sub": str(user.id)}),
+    #     )
+    async def __call__(self, user_input: UserInput, otp_code: OtpCodeInput) -> TokenPair:
+        if user_input.id:
+            user = await self.user_gateway.get_by_id(user_input.id)
+        elif user_input.email:
+            user = await self.user_gateway.get_by_email(user_input.email)
+        elif user_input.username:
+            user = await self.user_gateway.get_by_username(user_input.username)
+        else:
+            raise ValueError("User identifier (id, email or username) is required")
+        if not user:
+            raise ValueError("User not found")
+
+        otp_secret = await self.user_gateway.get_otp_secret(user)
+
+        if not otp_secret:
+            raise ValueError("OTP secret not found")
+        if not self.otp_service.verify_otp_code(otp_code.otp_code, otp_secret):
+            raise ValueError("Invalid code")
+
+        return TokenPair(
+            access_token=self.jwt_service.create_access_token({"sub": str(user.id), "email": user.email}),
+            refresh_token=self.jwt_service.create_refresh_token({"sub": str(user.id), "email": user.email}),
+        )
+
+
+class ResendOtpCodeInteractor:
+    def __init__(
+        self,
+        uow: UnitOfWorkInterface,
+        user_gateway: UserGatewayInterface,
+        otp_service: OtpServiceInterface,
+    ):
+        self.uow = uow
+        self.user_gateway = user_gateway
+        self.otp_service = otp_service
+
+    async def __call__(self, input_data: LoginUserInput) -> bool:
+        user = await self._find_user(input_data)
+        if not user:
+            raise ValueError("User not found")
+
+        otp_secret = await self.user_gateway.get_otp_secret(user)
+
+        if not otp_secret:
+            otp_secret = self.otp_service.generate_otp_secret()
+            async with self.uow:
+                await self.user_gateway.set_otp_secret(user, otp_secret)
+
+        otp_code = self.otp_service.generate_otp_code(otp_secret)
+
+        await send_otp_code.kiq(
+            to_email=user.email,
+            otp_code=otp_code,
+        )
+        return True
+
+    async def _find_user(self, user_input: LoginUserInput) -> User | None:
+        if user_input.email:
+            return await self.user_gateway.get_by_email(user_input.email)
+        if user_input.username:
+            return await self.user_gateway.get_by_username(user_input.username)
+        return None

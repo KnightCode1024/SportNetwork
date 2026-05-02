@@ -8,7 +8,7 @@ from sport_network_api.infrastructure.taskiq_broker import broker
 from sport_network_api.infrastructure.email_templates import render_template
 
 
-@broker.task(task_name="send_reset_password_email")
+@broker.task(task_name="send_reset_password_email", retry_on_error=True, max_retries=3)
 async def send_reset_password_email(to_email: str, token: str, username: str = "") -> bool:
     email_config = EmailConfig()
     frontend_config = FrontendConfig()

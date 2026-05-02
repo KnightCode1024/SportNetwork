@@ -1,19 +1,14 @@
-from enum import Enum
 from typing import TYPE_CHECKING
 from datetime import date
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Text, ForeignKey, Integer, Enum as SQLEnum, Date
+from sqlalchemy import String, Text, ForeignKey, Enum as SQLEnum, Date
 
 from sport_network_api.infrastructure.models import Base
+from sport_network_api.domain.enums import Gender
 
 if TYPE_CHECKING:
     from sport_network_api.infrastructure.models import User
-
-
-class GenderEnum(Enum):
-    MAN = "man"
-    WOMEN = "women"
 
 
 class Profile(Base):
@@ -31,8 +26,8 @@ class Profile(Base):
         Date(),
         nullable=True,
     )
-    gender: Mapped[GenderEnum] = mapped_column(
-        SQLEnum(GenderEnum),
+    gender: Mapped[Gender] = mapped_column(
+        SQLEnum(Gender),
         nullable=True,
         default=None,
     )

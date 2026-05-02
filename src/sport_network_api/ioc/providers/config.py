@@ -8,6 +8,7 @@ from sport_network_api.config.frontend import FrontendConfig
 from sport_network_api.config.rabbitmq import RabbitMQConfig
 from sport_network_api.config.redis import RedisConfig
 from sport_network_api.config.s3 import S3Config
+from sport_network_api.config.otp import OTPConfig
 
 class ConfigProvider(Provider):
     scope = Scope.APP
@@ -43,3 +44,7 @@ class ConfigProvider(Provider):
     @provide
     def get_s3_config(self) -> S3Config:
         return S3Config()
+
+    @provide
+    def get_otp_config(self) -> OTPConfig:
+        return OTPConfig()

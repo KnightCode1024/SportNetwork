@@ -1,7 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from datetime import date, datetime
 
-from sport_network_api.infrastructure.models.profile import GenderEnum
+from sport_network_api.domain.enums import Gender
 
 
 class RegisterRequest(BaseModel):
@@ -9,12 +9,21 @@ class RegisterRequest(BaseModel):
     email: EmailStr = Field(..., description="Email адрес")
     password: str = Field(..., min_length=8, max_length=128, description="Пароль")
     date_of_birth: date = Field(..., description="Дата рождения")
-    gender: GenderEnum = Field(..., description="Пол")
+    gender: Gender = Field(..., description="Пол")
 
 
 class LoginRequest(BaseModel):
-    identifier: str = Field(..., description="Имя пользователя или email")
+    email: EmailStr | None = Field(default=None)
+    username: str | None = Field(default=None)
     password: str = Field(..., min_length=8)
+
+    @model_validator(mode="after")
+    def check_email_or_username(self):
+        if not self.email and not self.username:
+            raise ValueError("Must be email or username")
+        if self.email and self.username:
+            raise ValueError("Must one field: email or username")
+        return self
 
 class VerifyEmailRequest(BaseModel):
     token: str = Field(..., description="Токен верификации")
@@ -41,7 +50,7 @@ class RegisterResponse(BaseModel):
 
 class LoginResponse(BaseModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -63,3 +72,13 @@ class ResetPasswordResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str = Field(..., description="Refresh токен")
+
+
+class OtpCode(BaseModel):
+    otp_code: str = Field(..., min_length=6, max_length=6)
+
+    @model_validator(mode="after")
+    def check_otp_code(self):
+        if not self.otp_code.isdigit():
+            raise ValueError("Code must be digits: 123456")
+        return self
