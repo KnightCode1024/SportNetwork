@@ -3,6 +3,7 @@ from .gateways.profile_gateway import ProfileGatewayInterface
 from .gateways.settings_gateway import SettingsGatewayInterface
 from .uow.uow import UnitOfWorkInterface
 from .services.password_service import PasswordServiceInterface
+from .services.s3_service import S3ServiceInterface
 
 __all__ = [
     "UserGatewayInterface",
@@ -10,4 +11,5 @@ __all__ = [
     "SettingsGatewayInterface",
     "UnitOfWorkInterface",
     "PasswordServiceInterface",
+    "S3ServiceInterface",
 ]

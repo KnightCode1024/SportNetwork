@@ -51,7 +51,7 @@ APP_PORT=8001
 APP_SECRET_KEY=secret_key
 
 S3_ENDPOINT=http://minio:9000
-S3_PUBLIC_KEY=admin
+S3_PUBLIC_ENDPOINT=http://127.0.0.1:9000/sport-network
 S3_ACCESS_KEY=admin
 S3_SECRET_KEY=secret-key
 S3_BUCKET_NAME=sport-network
