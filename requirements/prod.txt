@@ -5,6 +5,7 @@ pydantic[email]
 pydantic-settings
 alembic
 dishka
+boto3
 asyncpg
 bcrypt
 PyJWT
