@@ -1,7 +1,7 @@
 from typing import Protocol
 
 
-class S3ServiceInterface(Protocol):
+class S3GatewayInterface(Protocol):
     async def upload_avatar(
         self,
         user_id: int,

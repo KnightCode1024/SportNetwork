@@ -1,14 +1,11 @@
-import asyncio
 import json
 from pathlib import Path
 from uuid import uuid4
 
-import boto3
-from botocore.client import Config
-from botocore.exceptions import ClientError
+import aioboto3
 
 
-class S3Service:
+class S3Gateway:
     allowed_content_types = {
         "image/jpeg",
         "image/png",
@@ -30,19 +27,16 @@ class S3Service:
         self.endpoint = endpoint.rstrip("/")
         self.public_endpoint = public_endpoint.rstrip("/")
         self.region = region
-        self._client = boto3.client(
-            "s3",
-            endpoint_url=self.endpoint,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            region_name=region,
-            config=Config(
-                signature_version="s3v4",
-                connect_timeout=5,
-                read_timeout=30,
-                retries={"max_attempts": 2, "mode": "standard"},
-            ),
-        )
+        self._client_kwargs = {
+            "endpoint_url": self.endpoint,
+            "aws_access_key_id": access_key,
+            "aws_secret_access_key": secret_key,
+            "region_name": region,
+        }
+        self._session = aioboto3.Session()
+
+    def _create_client(self):
+        return self._session.client("s3", **self._client_kwargs)
 
     async def upload_file(
         self,
@@ -51,29 +45,26 @@ class S3Service:
         content_type: str = "application/octet-stream",
     ) -> str:
         await self._ensure_bucket_exists()
-        await asyncio.to_thread(
-            self._client.put_object,
-            Bucket=self.bucket,
-            Key=key,
-            Body=file_bytes,
-            ContentType=content_type,
-        )
+        async with await self._create_client() as client:
+            await client.put_object(
+                Bucket=self.bucket,
+                Key=key,
+                Body=file_bytes,
+                ContentType=content_type,
+            )
         return self._build_public_url(key)
 
     async def delete_file(self, key: str) -> None:
-        await asyncio.to_thread(
-            self._client.delete_object,
-            Bucket=self.bucket,
-            Key=key,
-        )
+        async with await self._create_client() as client:
+            await client.delete_object(Bucket=self.bucket, Key=key)
 
     async def get_url(self, key: str, expires_in: int = 3600) -> str:
-        return await asyncio.to_thread(
-            self._client.generate_presigned_url,
-            "get_object",
-            Params={"Bucket": self.bucket, "Key": key},
-            ExpiresIn=expires_in,
-        )
+        async with self._create_client() as client:
+            return client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.bucket, "Key": key},
+                ExpiresIn=expires_in,
+            )
 
     async def upload_avatar(
         self,
@@ -94,39 +85,38 @@ class S3Service:
         return url.removeprefix(prefix)
 
     async def _ensure_bucket_exists(self) -> None:
-        try:
-            await asyncio.to_thread(self._client.head_bucket, Bucket=self.bucket)
-        except ClientError as err:
-            error_code = err.response.get("Error", {}).get("Code")
-            if error_code not in {"404", "NoSuchBucket"}:
-                raise
+        async with self._create_client() as client:
+            try:
+                await client.head_bucket(Bucket=self.bucket)
+            except Exception as err:
+                error_code = None
+                if hasattr(err, "response"):
+                    error_code = err.response.get("Error", {}).get("Code")
+                if error_code not in {"404", "NoSuchBucket"}:
+                    raise
 
-            create_kwargs = {"Bucket": self.bucket}
-            if self.region != "us-east-1":
-                create_kwargs["CreateBucketConfiguration"] = {
-                    "LocationConstraint": self.region,
-                }
-            await asyncio.to_thread(self._client.create_bucket, **create_kwargs)
-
-        bucket_policy = json.dumps(
-            {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Sid": "PublicReadGetObject",
-                        "Effect": "Allow",
-                        "Principal": "*",
-                        "Action": ["s3:GetObject"],
-                        "Resource": [f"arn:aws:s3:::{self.bucket}/*"],
+                create_kwargs = {"Bucket": self.bucket}
+                if self.region != "us-east-1":
+                    create_kwargs["CreateBucketConfiguration"] = {
+                        "LocationConstraint": self.region,
                     }
-                ],
-            }
-        )
-        await asyncio.to_thread(
-            self._client.put_bucket_policy,
-            Bucket=self.bucket,
-            Policy=bucket_policy,
-        )
+                await client.create_bucket(**create_kwargs)
+
+            bucket_policy = json.dumps(
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "PublicReadGetObject",
+                            "Effect": "Allow",
+                            "Principal": "*",
+                            "Action": ["s3:GetObject"],
+                            "Resource": [f"arn:aws:s3:::{self.bucket}/*"],
+                        }
+                    ],
+                }
+            )
+            await client.put_bucket_policy(Bucket=self.bucket, Policy=bucket_policy)
 
     def _build_public_url(self, key: str) -> str:
         return f"{self.public_endpoint}/{key}"

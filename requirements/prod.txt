@@ -5,7 +5,6 @@ pydantic[email]
 pydantic-settings
 alembic
 dishka
-boto3
 asyncpg
 bcrypt
 PyJWT
@@ -13,9 +12,11 @@ alembic
 taskiq-aio-pika
 pyotp
 aiosmtplib
+aioboto3
 python-multipart
 jinja2
 cryptography
 redis
 httpx
 google-auth
+requests

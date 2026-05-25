@@ -6,8 +6,8 @@ from sport_network_api.application.interactors.profile.interactors import (
 from sport_network_api.application.interfaces.gateways.profile_gateway import (
     ProfileGatewayInterface,
 )
-from sport_network_api.application.interfaces.services.s3_service import (
-    S3ServiceInterface,
+from sport_network_api.application.interfaces.gateways.s3_gateway import (
+    S3GatewayInterface,
 )
 from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
 
@@ -20,10 +20,10 @@ class ProfileInteractorProvider(Provider):
         self,
         uow: UnitOfWorkInterface,
         profile_gateway: ProfileGatewayInterface,
-        s3_service: S3ServiceInterface,
+        s3_gateway: S3GatewayInterface,
     ) -> UploadAvatarInteractor:
         return UploadAvatarInteractor(
             uow=uow,
             profile_gateway=profile_gateway,
-            s3_service=s3_service,
+            s3_gateway=s3_gateway,
         )
