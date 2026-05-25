@@ -1,7 +1,8 @@
 from .user import UserDTO, RegisterUserDTO, LoginUserDTO
-from .auth import TokenPairDTO, AuthDTO, OtpDTO  # ⬜ TODO
-from .profile import ProfileDTO, ProfileWithUserDTO  # ⬜ TODO
-from .settings import SettingsDTO  # ⬜ TODO
+from .auth import TokenPairDTO, AuthDTO, OtpDTO
+from .profile import ProfileDTO, ProfileWithUserDTO
+from .settings import SettingsDTO
+from .event import EventDTO
 
 __all__ = [
     "UserDTO",
@@ -13,4 +14,5 @@ __all__ = [
     "ProfileDTO",
     "ProfileWithUserDTO",
     "SettingsDTO",
+    "EventDTO",
 ]

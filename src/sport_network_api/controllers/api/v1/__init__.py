@@ -4,6 +4,7 @@ from dishka.integrations.fastapi import DishkaRoute
 from .users_controller import router as users_router
 from .profile_controller import router as profile_router 
 from .settings_controller import router as settings_router 
+from .events_controller import router as events_router
 
 v1_controller = APIRouter(
     prefix="/api/v1",
@@ -14,6 +15,7 @@ routers = [
     users_router,
     profile_router,
     settings_router,
+    events_router,
 ]
 
 for router in routers:

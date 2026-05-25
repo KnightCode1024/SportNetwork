@@ -4,6 +4,7 @@ from sport_network_api.infrastructure.models.profile import Profile
 from sport_network_api.infrastructure.models.account_settings import (
     AccountSetting,
 )
+from sport_network_api.infrastructure.models.event import Event
 
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "User",
     "Profile",
     "AccountSetting",
+    "Event",
 ]
