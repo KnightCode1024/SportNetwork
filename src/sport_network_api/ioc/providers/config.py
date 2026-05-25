@@ -9,6 +9,7 @@ from sport_network_api.config.rabbitmq import RabbitMQConfig
 from sport_network_api.config.redis import RedisConfig
 from sport_network_api.config.s3 import S3Config
 from sport_network_api.config.otp import OTPConfig
+from sport_network_api.config.oauth.google import GoogleOAuthConfig
 
 class ConfigProvider(Provider):
     scope = Scope.APP
@@ -32,6 +33,10 @@ class ConfigProvider(Provider):
     @provide
     def get_frontend_config(self) -> FrontendConfig:
         return FrontendConfig()
+
+    @provide
+    def get_google_oauth_config(self) -> GoogleOAuthConfig:
+        return GoogleOAuthConfig()
 
     @provide
     def get_rabbitmq_config(self) -> RabbitMQConfig:

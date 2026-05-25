@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Request, Response, Query, HTTPException, status
+from fastapi import APIRouter, Request, Response, Query, HTTPException, status, Body
+from fastapi.responses import RedirectResponse
 from dishka.integrations.fastapi import FromDishka, DishkaRoute
 
 from sport_network_api.application.interactors.user.interactors import (
@@ -12,6 +13,8 @@ from sport_network_api.application.interactors.user.interactors import (
     RefreshTokenInteractor,
     CheckCodeInteractor,
     ResendOtpCodeInteractor,
+    HandleGoogleCallbackInteractor,
+    GenerateOAuthGoogleUrlInteractor,
 )
 from sport_network_api.application.dto.user import (
     RegisterUserInput,
@@ -22,6 +25,7 @@ from sport_network_api.application.dto.user import (
     RefreshTokenInput,
     UserInput,
     TokenPair,
+    OAuthCallbackInput,
 )
 from sport_network_api.application.interactors.user.errors import UserAlreadyExistsError
 
@@ -38,6 +42,8 @@ from sport_network_api.controllers.schemas.user import (
     OtpCode,
 )
 from sport_network_api.config.auth_jwt import AuthJWTConfig
+from sport_network_api.config.oauth.google import GoogleOAuthConfig
+from sport_network_api.config.frontend import FrontendConfig
 
 
 router = APIRouter(
@@ -165,25 +171,17 @@ async def login(
 async def refresh_token(
     request: Request,
     response: Response,
-    body: RefreshRequest | None = None,
-    interactor: FromDishka[RefreshTokenInteractor] = None,
-    jwt_config: FromDishka[AuthJWTConfig] = None,
+    interactor: FromDishka[RefreshTokenInteractor],
+    jwt_config: FromDishka[AuthJWTConfig],
 ) -> LoginResponse:
-    refresh_token_value = None
+    refresh_token_value = request.cookies.get("refresh_token")
 
-    if body and body.refresh_token:
-        refresh_token_value = body.refresh_token
-
-    if not refresh_token_value:
-        refresh_token_value = request.cookies.get("refresh_token")
-
-    if not refresh_token_value:
-        authorization = request.headers.get("Authorization")
-        if authorization:
-            try:
-                scheme, refresh_token_value = authorization.split()
-            except ValueError:
-                pass
+    authorization = request.headers.get("Authorization")
+    if authorization and not refresh_token_value:
+        try:
+            scheme, refresh_token_value = authorization.split()
+        except ValueError:
+            pass
 
     if not refresh_token_value:
         raise HTTPException(
@@ -307,3 +305,43 @@ async def logout(
     clear_auth_cookies(response)
     
     return {"message": "Successfully logged out"}
+
+
+@router.get("/oauth/google/url")
+async def get_google_auth_url(
+    interactor: FromDishka[GenerateOAuthGoogleUrlInteractor],
+):
+    result = await interactor.execute()
+    return {"auth_url": result.auth_url}
+
+
+@router.get("/oauth/google/callback")
+async def google_callback(
+    interactor: FromDishka[HandleGoogleCallbackInteractor],
+    jwt_config: FromDishka[AuthJWTConfig],
+    frontend_config: FromDishka[FrontendConfig],
+    google_config: FromDishka[GoogleOAuthConfig],
+    code: str = Query(...),
+    state: str = Query(...),
+):
+    try:
+        redirect_uri = str(google_config.REDIRECT_URL)
+        result = await interactor.execute(OAuthCallbackInput(code=code, state=state, redirect_uri=redirect_uri))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    redirect = RedirectResponse(
+        url=f"{frontend_config.URL.rstrip('/')}/dashboard?token={result.access_token}",
+        status_code=status.HTTP_302_FOUND,
+    )
+    set_auth_cookies(redirect, result.access_token, result.refresh_token, jwt_config)
+    return redirect
+
+
+@router.get("/oauth/yandex/url")
+async def oauth_yandex_url():
+    pass
+
+@router.post("/oauth/yandex/callback")
+async def oauth_yandex_callback():
+    pass

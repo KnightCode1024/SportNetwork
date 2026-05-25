@@ -11,6 +11,8 @@ from sport_network_api.application.interactors.user.interactors import (
     RefreshTokenInteractor,
     CheckCodeInteractor,
     ResendOtpCodeInteractor,
+    HandleGoogleCallbackInteractor,
+    GenerateOAuthGoogleUrlInteractor,
 )
 
 from sport_network_api.application.interfaces.gateways.user_gateway import UserGatewayInterface
@@ -23,6 +25,13 @@ from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
 from sport_network_api.application.interfaces.services.password_service import PasswordServiceInterface
 from sport_network_api.application.interfaces.services.jwt_service import JwtServiceInterface
 from sport_network_api.application.interfaces.services.otp_service import OtpServiceInterface
+
+from sport_network_api.config.auth_jwt import AuthJWTConfig
+from sport_network_api.config.oauth.google import GoogleOAuthConfig
+from sport_network_api.config.frontend import FrontendConfig
+
+from sport_network_api.application.interfaces.clients.google_oauth_client import GoogleOAuthClientInterface
+from sport_network_api.application.interfaces.cache.oauth_storage import StateStorageInterface
 
 
 class UserInteractorProvider(Provider):
@@ -158,4 +167,38 @@ class UserInteractorProvider(Provider):
             uow=uow,
             user_gateway=user_gateway,
             otp_service=otp_service,
+        )
+
+    @provide
+    def get_handle_google_callback_interactor(
+        self,
+        uow: UnitOfWorkInterface,
+        user_gateway: UserGatewayInterface,
+        profile_gateway: ProfileGatewayInterface,
+        settings_gateway: SettingsGatewayInterface,
+        password_service: PasswordServiceInterface,
+        jwt_service: JwtServiceInterface,
+        google_client: GoogleOAuthClientInterface,
+        state_storage: StateStorageInterface,
+    ) -> HandleGoogleCallbackInteractor:
+        return HandleGoogleCallbackInteractor(
+            uow=uow,
+            user_gateway=user_gateway,
+            profile_gateway=profile_gateway,
+            settings_gateway=settings_gateway,
+            password_service=password_service,
+            jwt_service=jwt_service,
+            google_client=google_client,
+            state_storage=state_storage,
+        )
+
+    @provide
+    def get_generate_oauth_google_url_interactor(
+        self,
+        google_config: GoogleOAuthConfig,
+        state_storage: StateStorageInterface,
+    ) -> GenerateOAuthGoogleUrlInteractor:
+        return GenerateOAuthGoogleUrlInteractor(
+            google_config=google_config,
+            state_storage=state_storage,
         )

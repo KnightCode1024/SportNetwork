@@ -16,3 +16,5 @@ python-multipart
 jinja2
 cryptography
 redis
+httpx
+google-auth

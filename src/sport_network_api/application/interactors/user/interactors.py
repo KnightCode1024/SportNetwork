@@ -1,4 +1,5 @@
 import time
+import urllib
 from uuid import uuid4
 
 from sport_network_api.application.dto.user import (
@@ -15,18 +16,22 @@ from sport_network_api.application.dto.user import (
     OtpCodeInput,
     TokenPair,
     UserInput,
+    OAuthCallbackInput,
+    OAuthUserOutput,
+    GenerateAuthUrlOutput,
 )
 from sport_network_api.application.interfaces.gateways.token_blacklist_gateway import TokenBlacklistGatewayInterface
 from sport_network_api.application.interfaces.gateways.user_gateway import UserGatewayInterface
 from sport_network_api.application.interfaces.gateways.profile_gateway import ProfileGatewayInterface
-
 from sport_network_api.application.interfaces.services.jwt_service import JwtServiceInterface
 from sport_network_api.application.interfaces.services.password_service import PasswordServiceInterface
-from  sport_network_api.application.interfaces.services.otp_service import OtpServiceInterface
-
+from sport_network_api.application.interfaces.services.otp_service import OtpServiceInterface
 from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
-from sport_network_api.application.interactors.user.errors import UserAlreadyExistsError
 from sport_network_api.application.interfaces.gateways.settings_gateway import SettingsGatewayInterface
+from sport_network_api.application.interfaces.cache.oauth_storage import StateStorageInterface
+from sport_network_api.application.interfaces.clients.google_oauth_client import GoogleOAuthClientInterface
+
+from sport_network_api.application.interactors.user.errors import UserAlreadyExistsError
 
 from sport_network_api.infrastructure.tasks.notification.email import (
     send_verify_email,
@@ -37,6 +42,10 @@ from sport_network_api.infrastructure.tasks.notification.email import (
 
 from sport_network_api.domain.user import User
 from sport_network_api.domain.profile import Profile
+
+from sport_network_api.config.auth_jwt import AuthJWTConfig
+from sport_network_api.config.frontend import FrontendConfig
+from sport_network_api.config.oauth.google import GoogleOAuthConfig
 
 
 class RegisterUserInteractor:
@@ -350,10 +359,10 @@ class LogoutUserInteractor:
 class RefreshTokenInteractor:
     def __init__(
         self,
-        user_repository: UserGatewayInterface,
+        user_gateway: UserGatewayInterface,
         jwt_service: JwtServiceInterface,
     ):
-        self.user_repository = user_repository
+        self.user_gateway = user_gateway
         self.jwt_service = jwt_service
 
     async def __call__(self, input_data: RefreshTokenInput) -> RefreshTokenDTO:
@@ -366,7 +375,7 @@ class RefreshTokenInteractor:
         if not user_id:
             raise ValueError("Invalid or expired refresh token")
 
-        user = await self.user_repository.get_by_id(int(user_id))
+        user = await self.user_gateway.get_by_id(int(user_id))
         if user is None or not user.is_active:
             raise ValueError("User not found or inactive")
 
@@ -398,16 +407,6 @@ class CheckCodeInteractor:
         self.otp_service = otp_service
         self.jwt_service = jwt_service
 
-    # async def __call__(self, user: UserInput, otp_code: OtpCodeInput):
-    #     otp_secret = await self.user_gateway.get_otp_secret(user)
-    #
-    #     if not self.otp_service.verify_otp_code(otp_code.otp_code, otp_secret):
-    #         raise ValueError("Invalid code")
-    #
-    #     return TokenPair(
-    #         access_token=self.jwt_service.create_access_token({"sub": str(user.id)}),
-    #         refresh_token=self.jwt_service.create_refresh_token({"sub": str(user.id)}),
-    #     )
     async def __call__(self, user_input: UserInput, otp_code: OtpCodeInput) -> TokenPair:
         if user_input.id:
             user = await self.user_gateway.get_by_id(user_input.id)
@@ -470,3 +469,111 @@ class ResendOtpCodeInteractor:
         if user_input.username:
             return await self.user_gateway.get_by_username(user_input.username)
         return None
+
+
+class HandleGoogleCallbackInteractor:
+    def __init__(
+        self,
+        uow: UnitOfWorkInterface,
+        user_gateway: UserGatewayInterface,
+        profile_gateway: ProfileGatewayInterface,
+        settings_gateway: SettingsGatewayInterface,
+        password_service: PasswordServiceInterface,
+        jwt_service: JwtServiceInterface,
+        google_client: GoogleOAuthClientInterface,
+        state_storage: StateStorageInterface,
+    ):
+        self.uow = uow
+        self.user_gateway = user_gateway
+        self.profile_gateway = profile_gateway
+        self.settings_gateway = settings_gateway
+        self.password_service = password_service
+        self.jwt_service = jwt_service
+        self.google_client = google_client
+        self.state_storage = state_storage
+
+    async def __call__(self, input_data: OAuthCallbackInput) -> TokenPair:
+        if not await self.state_storage.consume(input_data.state):
+            raise ValueError("Неверный или истёкший state")
+
+        tokens = await self.google_client.exchange_code(
+            code=input_data.code,
+            redirect_uri=input_data.redirect_uri,
+        )
+        user_info = await self.google_client.verify_id_token(tokens["id_token"])
+
+        email = user_info.get("email")
+        if not email:
+            raise ValueError("Google не вернул email")
+
+        username = user_info.get("name") or f"google-{uuid4().hex[:12]}"
+        user = await self.user_gateway.get_by_email(email)
+
+        if user is None:
+            password_hash = self.password_service.hash_password(str(uuid4()))
+            user = User(
+                id=None,
+                username=username,
+                email=email,
+                password_hash=password_hash,
+                token=uuid4(),
+                otp_secret=None,
+                is_active=True,
+            )
+            async with self.uow:
+                user = await self.user_gateway.create(user)
+                await self.profile_gateway.create(
+                    Profile(user_id=user.id, date_of_birth=None, gender=None)
+                )
+                await self.settings_gateway.create(user_id=user.id)
+        elif not user.is_active:
+            async with self.uow:
+                user.activate()
+                await self.user_gateway.update(user)
+
+        await send_login_notification.kiq(
+            to_email=user.email,
+            ip_address="OAuth",
+            location="Google OAuth",
+            device="Google",
+            browser="OAuth",
+            username=user.username,
+        )
+
+        access_token = self.jwt_service.create_access_token(
+            data={"sub": str(user.id), "email": user.email},
+        )
+        refresh_token = self.jwt_service.create_refresh_token(
+            data={"sub": str(user.id), "email": user.email},
+        )
+
+        return TokenPair(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+
+
+class GenerateOAuthGoogleUrlInteractor:
+    def __init__(
+        self,
+        google_config: GoogleOAuthConfig,
+        state_storage: StateStorageInterface,
+    ):
+        self.google_config = google_config
+        self.state_storage = state_storage
+
+    async def __call__(self) -> GenerateAuthUrlOutput:
+        state = await self.state_storage.generate_and_store()
+        redirect_uri = str(self.google_config.REDIRECT_URL)
+        params = {
+            "client_id": self.google_config.CLIENT_ID,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": "openid profile email",
+            "access_type": "offline",
+            "state": state,
+        }
+        query_string = urllib.parse.urlencode(params)
+        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query_string}"
+        return GenerateAuthUrlOutput(auth_url=auth_url, state=state)
+

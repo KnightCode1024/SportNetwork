@@ -5,11 +5,11 @@ from sport_network_api.domain.enums import Gender
 
 
 class RegisterRequest(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50, description="Имя пользователя")
-    email: EmailStr = Field(..., description="Email адрес")
-    password: str = Field(..., min_length=8, max_length=128, description="Пароль")
-    date_of_birth: date = Field(..., description="Дата рождения")
-    gender: Gender = Field(..., description="Пол")
+    username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr = Field(...)
+    password: str = Field(..., min_length=8, max_length=128)
+    date_of_birth: date = Field(...)
+    gender: Gender = Field(...)
 
 
 class LoginRequest(BaseModel):
@@ -26,11 +26,11 @@ class LoginRequest(BaseModel):
         return self
 
 class VerifyEmailRequest(BaseModel):
-    token: str = Field(..., description="Токен верификации")
+    token: str = Field(...)
 
 
 class ResendVerificationRequest(BaseModel):
-    email: EmailStr = Field(..., description="Email адрес")
+    email: EmailStr = Field(...)
 
 
 class UserResponse(BaseModel):
@@ -58,20 +58,20 @@ class ErrorResponse(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    email: EmailStr = Field(..., description="Email адрес для сброса пароля")
+    email: EmailStr = Field(...)
 
 
 class ResetPasswordConfirmRequest(BaseModel):
-    token: str = Field(..., description="Токен сброса пароля")
-    new_password: str = Field(..., min_length=8, max_length=128, description="Новый пароль")
+    token: str = Field(...)
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 
 class ResetPasswordResponse(BaseModel):
-    success: bool = Field(..., description="Успешный сброс пароля")
+    success: bool = Field(...)
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str = Field(..., description="Refresh токен")
+    refresh_token: str = Field(...)
 
 
 class OtpCode(BaseModel):
@@ -80,5 +80,5 @@ class OtpCode(BaseModel):
     @model_validator(mode="after")
     def check_otp_code(self):
         if not self.otp_code.isdigit():
-            raise ValueError("Code must be digits: 123456")
+            raise ValueError("Code must be digits: like 123456")
         return self

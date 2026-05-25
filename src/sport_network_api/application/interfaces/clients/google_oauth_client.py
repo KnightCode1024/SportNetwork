@@ -1,0 +1,6 @@
+from typing import Protocol
+
+class GoogleOAuthClientInterface(Protocol):
+    async def exchange_code(self, code: str, redirect_uri: str) -> dict: ...
+
+    async def verify_id_token(self, id_token: str) -> dict: ...

@@ -1,0 +1,6 @@
+from typing import Protocol
+
+class StateStorageInterface(Protocol):
+    async def generate_and_store(self) -> str: ...
+
+    async def consume(self, state: str) -> bool: ...

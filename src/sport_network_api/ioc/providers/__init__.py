@@ -5,6 +5,9 @@ from .gateways import GatewayProvider
 from .interactors import InteractorProvider
 from .services import ServiceProvider
 from .uow import UnitOfWorkProvider
+from .cache import CacheProvider
+from .clients import ClientsProvider
+
 from dishka.integrations.fastapi import FastapiProvider
 
 providers = [
@@ -15,7 +18,9 @@ providers = [
     GatewayProvider(),
     InteractorProvider(),
     ServiceProvider(),
-    FastapiProvider()
+    FastapiProvider(),
+    CacheProvider(),
+    ClientsProvider(),
 ]
 
 __all__ = ["providers"]
