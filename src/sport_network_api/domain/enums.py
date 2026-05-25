@@ -1,11 +1,11 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class Gender(Enum):
-    MAN = "man"
-    WOMEN = "women"
+class Gender(StrEnum):
+    MAN = "MAN"
+    WOMEN = "WOMEN"
 
 
-class NotificationProvider(Enum):
+class NotificationProvider(StrEnum):
     EMAIL = "EMAIL"
     TELEGRAM = "TELEGRAM"

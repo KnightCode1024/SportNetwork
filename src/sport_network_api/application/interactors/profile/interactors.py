@@ -1,42 +1,55 @@
-from dataclasses import dataclass
-from datetime import date
+from sport_network_api.application.interfaces.gateways.profile_gateway import (
+    ProfileGatewayInterface,
+)
+from sport_network_api.application.interfaces.services.s3_service import (
+    S3ServiceInterface,
+)
+from sport_network_api.application.interfaces.uow.uow import UnitOfWorkInterface
 
-
-@dataclass
-class ProfileDTO:
-    id: int
-    user_id: int
-    bio: str | None
-    avatar_url: str | None
-    date_of_birth: date | None
-    gender: str | None
-
-    @property
-    def age(self) -> int | None:
-        from datetime import datetime
-        if self.date_of_birth is None:
-            return None
-        return (datetime.now().date() - self.date_of_birth).days // 365
-
-
-class GetProfileInteractor:
-    def __init__(self):
-        pass
-    
-    async def __call__(self, user_id: int) -> ProfileDTO:
-        pass
-
-
-class UpdateProfileInteractor:
-    def __init__(self):
-        pass
-    
-    async def __call__(self, user_id: int, **fields) -> ProfileDTO:
-        pass
 
 class UploadAvatarInteractor:
-    def __init__(self):
-        pass
-    
-    async def __call__(self, user_id: int, file_bytes: bytes, filename: str) -> str:
-        pass
+    def __init__(
+        self,
+        uow: UnitOfWorkInterface,
+        profile_gateway: ProfileGatewayInterface,
+        s3_service: S3ServiceInterface,
+    ):
+        self.uow = uow
+        self.profile_gateway = profile_gateway
+        self.s3_service = s3_service
+
+    async def __call__(
+        self,
+        user_id: int,
+        file_bytes: bytes,
+        filename: str,
+        content_type: str,
+    ) -> str:
+        profile = await self.profile_gateway.get_by_user_id(user_id)
+        if profile is None:
+            raise ValueError("Profile not found")
+
+        previous_avatar_url = profile.avatar_url
+        avatar_url = await self.s3_service.upload_avatar(
+            user_id=user_id,
+            file_bytes=file_bytes,
+            filename=filename,
+            content_type=content_type,
+        )
+
+        try:
+            async with self.uow:
+                profile.set_avatar(avatar_url)
+                await self.profile_gateway.update(profile)
+        except Exception:
+            avatar_key = self.s3_service.get_key_from_url(avatar_url)
+            if avatar_key is not None:
+                await self.s3_service.delete_file(avatar_key)
+            raise
+
+        if previous_avatar_url:
+            previous_avatar_key = self.s3_service.get_key_from_url(previous_avatar_url)
+            if previous_avatar_key is not None:
+                await self.s3_service.delete_file(previous_avatar_key)
+
+        return avatar_url
