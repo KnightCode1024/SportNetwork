@@ -6,7 +6,7 @@ class EventResponse(BaseModel):
     title: str
     description: str | None = None
     address: str
-    sport_type: str
+    sport_type_id: int
     organizer_id: int
     organizer_username: str | None = None
     max_participants: int

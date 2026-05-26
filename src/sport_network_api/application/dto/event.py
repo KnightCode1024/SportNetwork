@@ -7,7 +7,7 @@ class EventDTO:
     title: str = ""
     description: str | None = None
     address: str = ""
-    sport_type: str = ""
+    sport_type_id: int | None = None
     organizer_id: int | None = None
     organizer_username: str | None = None
     max_participants: int = 0

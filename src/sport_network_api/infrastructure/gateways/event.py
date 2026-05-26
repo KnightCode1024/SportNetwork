@@ -62,7 +62,7 @@ class EventGateway(EventGatewayInterface):
             title=event_model.title,
             description=event_model.description,
             address=event_model.address,
-            sport_type=event_model.sport_type,
+            sport_type_id=event_model.sport_type_id,
             organizer_id=event_model.organizer_id,
             organizer_username=event_model.organizer.username if event_model.organizer else None,
             max_participants=event_model.max_participants,

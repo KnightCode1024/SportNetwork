@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Table, Column, String, Text, ForeignKey, Integer
@@ -9,6 +7,7 @@ from sport_network_api.infrastructure.models import Base
 
 if TYPE_CHECKING:
     from sport_network_api.infrastructure.models.user import User
+    from sport_network_api.infrastructure.models.sport_type import SportType
 
 
 event_participants = Table(
@@ -34,9 +33,14 @@ class Event(Base):
         String(),
         nullable=False,
     )
-    sport_type: Mapped[str] = mapped_column(
-        String(),
+    sport_type_id: Mapped[int] = mapped_column(
+        ForeignKey("sport_types.id"),
         nullable=False,
+    )
+    sport_type: Mapped[SportType] = relationship(
+        "SportType",
+        back_populates="event",
+        uselist=False,
     )
     organizer_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),
