@@ -4,6 +4,7 @@ from sport_network_api.application.interactors.event.interactors import (
     ListEventsInteractor,
     GetEventInteractor,
     RegisterEventInteractor,
+    CreateEventInteractor,
 )
 from sport_network_api.application.interfaces.gateways.event_gateway import (
     EventGatewayInterface,
@@ -35,6 +36,17 @@ class EventInteractorProvider(Provider):
         event_gateway: EventGatewayInterface,
     ) -> RegisterEventInteractor:
         return RegisterEventInteractor(
+            uow=uow,
+            event_gateway=event_gateway,
+        )
+
+    @provide
+    def get_create_event_interactor(
+        self,
+        uow: UnitOfWorkInterface,
+        event_gateway: EventGatewayInterface,
+    ) -> CreateEventInteractor:
+        return CreateEventInteractor(
             uow=uow,
             event_gateway=event_gateway,
         )

@@ -1,12 +1,16 @@
+from dataclasses import asdict
+
 from dishka.integrations.fastapi import DishkaRoute, FromDishka
 from fastapi import APIRouter, HTTPException, status
 
+from sport_network_api.application.dto.event import CreateEventInput
 from sport_network_api.application.interactors.event.interactors import (
     ListEventsInteractor,
     GetEventInteractor,
     RegisterEventInteractor,
+    CreateEventInteractor,
 )
-from sport_network_api.controllers.schemas.event import EventResponse
+from sport_network_api.controllers.schemas.event import EventResponse, EventCreateRequest
 from sport_network_api.controllers.schemas.user import UserResponse
 
 router = APIRouter(
@@ -21,7 +25,7 @@ async def list_events(
     interactor: FromDishka[ListEventsInteractor],
 ) -> list[EventResponse]:
     events = await interactor()
-    return [EventResponse(**event.__dict__) for event in events]
+    return [EventResponse(**asdict(event)) for event in events]
 
 
 @router.get("/{event_id}", response_model=EventResponse)
@@ -37,7 +41,18 @@ async def get_event(
             detail=str(err),
         ) from err
 
-    return EventResponse(**event.__dict__)
+    return EventResponse(**asdict(event))
+
+
+@router.post("", response_model=EventResponse)
+async def create_event(
+    event_request: EventCreateRequest,
+    current_user: FromDishka[UserResponse],
+    interactor: FromDishka[CreateEventInteractor],
+) -> EventResponse:
+    event_input = CreateEventInput(**event_request.model_dump())
+    event = await interactor(current_user.id, event_input)
+    return EventResponse(**asdict(event))
 
 
 @router.post("/{event_id}/register", response_model=EventResponse)
@@ -54,4 +69,4 @@ async def register_event(
             detail=str(err),
         ) from err
 
-    return EventResponse(**event.__dict__)
+    return EventResponse(**asdict(event))
